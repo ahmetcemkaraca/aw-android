@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 import net.activitywatch.android.RustInterface
+import net.activitywatch.android.AWPreferences
 import net.activitywatch.android.watcher.SessionEventWatcher
 import net.activitywatch.android.watcher.UsageStatsWatcher
 import org.json.JSONException
@@ -15,6 +16,10 @@ class EventParsingWorker(context: Context, params: WorkerParameters) : Worker(co
 
     override fun doWork(): Result {
         Log.i(TAG, "Starting periodic event parsing")
+        if (!AWPreferences(applicationContext).isCaptureEnabled()) {
+            Log.i(TAG, "Recording is paused; skipping event parsing")
+            return Result.success()
+        }
         if (!UsageStatsWatcher.isUsageAllowed(applicationContext)) {
             // Without usage access, queryEvents() returns nothing; skip cleanly rather than
             // spinning up RustInterface and retrying forever.
@@ -28,6 +33,10 @@ class EventParsingWorker(context: Context, params: WorkerParameters) : Worker(co
             // reachable — it just has no buckets yet (e.g. fresh install) — so we proceed and
             // let processEventsSinceLastUpdate() create the bucket.
             val ri = RustInterface(applicationContext)
+            if (ri.needsVaultRecovery) {
+                Log.w(TAG, "Local vault unavailable; skipping event parsing")
+                return Result.success()
+            }
             try {
                 ri.getBucketsJSON()
             } catch (e: JSONException) {

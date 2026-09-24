@@ -127,4 +127,13 @@ class BrowserSessionTrackerTest {
         checkNotNull(completed)
         assertEquals(0L, completed.duration.seconds)
     }
+
+    @Test
+    fun `discarding an uncertain private session never flushes its url`() {
+        val tracker = BrowserSessionTracker { Instant.ofEpochSecond(1010) }
+        tracker.handleUrl("private.example", "chrome")
+        tracker.discardCurrentSession()
+
+        assertNull(tracker.handleUrl("work.example", "chrome"))
+    }
 }

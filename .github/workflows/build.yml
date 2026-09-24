@@ -3,14 +3,9 @@ name: Build
 on:
   push:
     branches: [ master ]
-    tags:
-      - v*
   pull_request:
     branches: [ master ]
   workflow_dispatch:
-    # Allows manually triggering a build on any branch or tag.
-    # Useful when RELEASE_PAT is missing and a tag push didn't auto-trigger this workflow.
-    # Usage: gh workflow run build.yml --repo ActivityWatch/aw-android --ref refs/tags/v<version>
 
 env:
   # r28+: links native libs with 16 KB page alignment by default (Play requirement since Nov 2025)
@@ -26,9 +21,6 @@ jobs:
     - uses: actions/checkout@v4
       with:
         submodules: 'recursive'
-    - name: Set RELEASE
-      run: |
-        echo "RELEASE=${{ startsWith(github.ref_name, 'v') }}" >> $GITHUB_ENV
 
     - name: Cache JNI libs
       uses: actions/cache@v4
@@ -37,7 +29,7 @@ jobs:
         cache-name: jniLibs
       with:
         path: mobile/src/main/jniLibs/
-        key: ${{ env.cache-name }}-release-${{ env.RELEASE }}-ndk-${{ env.NDK_VERSION }}-${{ hashFiles('.git/modules/aw-server-rust/HEAD') }}
+        key: ${{ env.cache-name }}-ndk-${{ env.NDK_VERSION }}-${{ hashFiles('.git/modules/aw-server-rust/HEAD') }}
 
     - name: Display structure of downloaded files
       if: steps.cache-jniLibs.outputs.cache-hit == 'true'
@@ -77,9 +69,9 @@ jobs:
       with:
         path: aw-server-rust/target
         # key needs to contain cachekey due to https://github.com/ActivityWatch/aw-server-rust/issues/180
-        key: ${{ env.cache-name }}-${{ runner.os }}-release-${{ env.RELEASE }}-${{ steps.toolchain.outputs.cachekey }}-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ env.cache-name }}-${{ runner.os }}-${{ steps.toolchain.outputs.cachekey }}-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
-          ${{ env.cache-name }}-${{ runner.os }}-release-${{ env.RELEASE }}-${{ steps.toolchain.outputs.cachekey }}-
+          ${{ env.cache-name }}-${{ runner.os }}-${{ steps.toolchain.outputs.cachekey }}-
 
     - name: Build aw-server-rust
       if: steps.cache-jniLibs.outputs.cache-hit != 'true'
@@ -96,145 +88,10 @@ jobs:
         name: jniLibs
         path: mobile/src/main/jniLibs/
 
-  # This needs to be a separate job since it's used by both build-apk and release-fastlane.
-  # versionCode is now committed to git by release.yml before the tag is pushed,
-  # so we just read it from build.gradle — no Play Console query needed here.
-  get-versionCode:
-    name: Get latest versionCode
-    runs-on: ubuntu-latest
-    outputs:
-      versionCode: ${{ steps.versionCode.outputs.versionCode }}
-
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: 'recursive'
-
-    - name: Output versionCode
-      id: versionCode
-      run: |
-        cat mobile/build.gradle | grep versionCode | sed 's/.*\s\([0-9]*\)$/versionCode=\1/' >> "$GITHUB_OUTPUT"
-
-  build-apk:
-    name: Build ${{ matrix.type }}
-    runs-on: ubicloud-standard-4
-    needs: [build-rust, get-versionCode]
-    # Skip on fork PRs: signing secrets are not available and upload would fail anyway.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    strategy:
-      fail-fast: true
-      matrix:
-        type: ['apk', 'aab']
-
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: 'recursive'
-
-    - uses: ActivityWatch/check-version-format-action@v2
-      id: version
-      with:
-        prefix: 'v'
-
-    - name: Echo version
-      run: |
-        echo "${{ steps.version.outputs.full }} (stable: ${{ steps.version.outputs.is_stable }})"
-
-    - name: Set RELEASE
-      run: |
-        # Build in release mode if on a tag/release (longer build times)
-        echo "RELEASE=${{ startsWith(github.ref_name, 'v') }}" >> $GITHUB_ENV
-
-    - name: Set up JDK
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: ${{ env.JAVA_VERSION }}
-
-    # Android SDK & NDK
-    - name: Set up Android SDK
-      uses: android-actions/setup-android@v3
-      with:
-        packages: platform-tools
-    - name: Set up Android NDK
-      run: |
-        sdkmanager "ndk;${{ env.NDK_VERSION }}"
-        ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk/${{ env.NDK_VERSION }}"
-        ls $ANDROID_NDK_HOME
-        echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
-
-    # Restores jniLibs from cache
-    # `actions/cache/restore` only restores, without saving back in a post-hook
-    - uses: actions/cache/restore@v4
-      id: cache-jniLibs
-      env:
-        cache-name: jniLibs
-      with:
-        path: mobile/src/main/jniLibs/
-        key: ${{ env.cache-name }}-release-${{ env.RELEASE }}-ndk-${{ env.NDK_VERSION }}-${{ hashFiles('.git/modules/aw-server-rust/HEAD') }}
-        fail-on-cache-miss: false
-
-    - name: Check that jniLibs present and valid ELF
-      run: |
-        python3 scripts/check-jnilibs.py
-
-    - name: Verify versionName matches tag
-      if: startsWith(github.ref, 'refs/tags/v')  # only on runs triggered from tag
-      run: |
-        SHORT_VERSION="${GITHUB_REF_NAME#v}"
-        COMMITTED_VERSION=$(sed -n -E "s/^[[:space:]]*versionName[[:space:]]+['\"]([^'\"]+)['\"].*/\\1/p" mobile/build.gradle)
-        if [ -z "$COMMITTED_VERSION" ]; then
-          echo "Failed to parse versionName from mobile/build.gradle."
-          exit 1
-        fi
-        if [ "$COMMITTED_VERSION" != "$SHORT_VERSION" ]; then
-          echo "mobile/build.gradle versionName must match the release tag."
-          echo "tag=$SHORT_VERSION committed=$COMMITTED_VERSION"
-          exit 1
-        fi
-
-    - name: Set versionCode
-      run: |
-        # Sets versionCode
-        sed -i "s/versionCode .*/versionCode ${{needs.get-versionCode.outputs.versionCode}}/" \
-                mobile/build.gradle
-
-    # Signing strategy is shared with gptme/gptme (.github/workflows/tauri.yml
-    # release-android job + docs/contributing.rst "Android release signing"
-    # there); signing itself happens in scripts/sign_apk.sh via the Makefile.
-    # Keep the two implementations consistent when changing either.
-    # gptme delivers the keystore as a base64 secret instead of age-encrypted
-    # in-repo, pins the signer cert SHA-256, and fails closed on missing
-    # secrets — planned to be adopted here too (see issue tracker).
-    - uses: adnsio/setup-age-action@v1.2.0
-    - name: Load Android secrets
-      if: env.KEY_ANDROID_JKS != null
-      env:
-        KEY_ANDROID_JKS: ${{ secrets.KEY_ANDROID_JKS }}
-      run: |
-        printf "$KEY_ANDROID_JKS" > android.jks.key
-        cat android.jks.age | age -d -i android.jks.key -o android.jks
-        rm android.jks.key
-
-    - name: Assemble
-      env:
-        JKS_STOREPASS: ${{ secrets.KEY_ANDROID_JKS_STOREPASS }}
-        JKS_KEYPASS: ${{ secrets.KEY_ANDROID_JKS_KEYPASS }}
-      run: |
-        make dist/aw-android.${{ matrix.type }}
-
-    - name: Upload
-      uses: actions/upload-artifact@v4
-      with:
-        name: aw-android-${{ matrix.type }}
-        path: dist/aw-android*.${{ matrix.type }}
-
   test:
     name: Test
     runs-on: ubuntu-24.04
     needs: [build-rust]
-    env:
-      SUPPLY_TRACK: production   # used by fastlane to determine track to publish to
 
     steps:
     - uses: actions/checkout@v4
@@ -293,9 +150,6 @@ jobs:
       with:
         submodules: 'recursive'
 
-    - name: Set RELEASE
-      run: |
-        echo "RELEASE=${{ startsWith(github.ref_name, 'v') }}" >> $GITHUB_ENV
 
     - name: Download jniLibs artifact
       uses: actions/download-artifact@v4
@@ -373,105 +227,3 @@ jobs:
     #    for file in ./mobile/build/reports/androidTests/connected/*.html; do cat $file >> GITHUB_STEP_SUMMARY.html ; done
     #    # echo '<style>' >> GITHUB_STEP_SUMMARY.html;for file in ./mobile/build/reports/androidTests/connected/**/*.css; do cat $file >> GITHUB_STEP_SUMMARY.html ; done; echo '</style>' >> GITHUB_STEP_SUMMARY.html;
     #    cat GITHUB_STEP_SUMMARY.html >> $GITHUB_STEP_SUMMARY
-
-  release-fastlane:
-    needs: [build-apk, test, get-versionCode]
-    if: startsWith(github.ref, 'refs/tags/v')  # only on runs triggered from tag
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: Download APK & AAB
-      uses: actions/download-artifact@v4
-      with:
-        pattern: aw-android-*
-        path: dist
-        merge-multiple: true
-
-    - name: Display structure of downloaded files
-      working-directory: dist
-      run: ls -R
-
-    # Ruby & Fastlane
-    # version set by .ruby-version
-    - name: Set up Ruby and install fastlane
-      uses: ruby/setup-ruby@v1
-      with:
-        bundler-cache: true
-
-    # detect if version tag is stable/beta
-    - uses: nowsprinting/check-version-format-action@v4
-      id: version
-      with:
-        prefix: 'v'
-
-    - name: Set SUPPLY_TRACK
-      run: |
-        # Set SUPPLY_TRACK based on whether this is a stable (x.y.z) or pre-release tag.
-        # NOTE: nowsprinting/check-version-format-action classifies 0.x.x as not stable
-        # (semver convention), but aw-android uses 0.x.x for production releases.
-        # Check for pre-release suffixes directly instead.
-        TAG="${{ github.ref_name }}"
-        VERSION="${TAG#v}"
-        if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-          SUPPLY_TRACK="production"
-        else
-          SUPPLY_TRACK="internal"
-        fi
-        echo "SUPPLY_TRACK=${SUPPLY_TRACK}" >> $GITHUB_ENV
-
-    - uses: adnsio/setup-age-action@v1.2.0
-    - name: Load Android secrets
-      env:
-        KEY_FASTLANE_API: ${{ secrets.KEY_FASTLANE_API }}
-      run: |
-        printf "$KEY_FASTLANE_API" > fastlane/api-8546008605074111507-287154-450dc77b365f.json.key
-        cat fastlane/api-8546008605074111507-287154-450dc77b365f.json.age \
-          | age -d -i fastlane/api-8546008605074111507-287154-450dc77b365f.json.key \
-                   -o fastlane/api-8546008605074111507-287154-450dc77b365f.json
-        rm fastlane/api-8546008605074111507-287154-450dc77b365f.json.key
-
-    - name: Release with fastlane
-      run: |
-        # Newer fastlane versions fail hard if rubygems.org isn't in the system gem sources list.
-        # This is idempotent (exits 0 if already present).
-        gem sources --add https://rubygems.org
-        # bundle exec fastlane supply run --apk dist/*.apk
-        bundle exec fastlane supply run --aab dist/*.aab
-
-  release-gh:
-    needs: [build-apk, test]
-    if: startsWith(github.ref, 'refs/tags/v')  # only on runs triggered from tag
-    runs-on: ubuntu-latest
-    steps:
-
-    # Will download all artifacts to path
-    - name: Download release APK & AAB
-      uses: actions/download-artifact@v4
-      with:
-        pattern: aw-android-*
-        path: dist
-        merge-multiple: true
-
-    - name: Display structure of downloaded files
-      working-directory: dist
-      run: ls -R
-
-    # detect if version tag is stable/beta
-    - uses: nowsprinting/check-version-format-action@v4
-      id: version
-      with:
-        prefix: 'v'
-
-    # create a release
-    - name: Release
-      uses: softprops/action-gh-release@v2
-      with:
-        draft: true
-        prerelease: ${{ !(steps.version.outputs.is_stable == 'true') }}  # must compare to true, since boolean outputs are actually just strings, and "false" is truthy since it's not empty: https://github.com/actions/runner/issues/1483#issuecomment-994986996
-        files: |
-          dist/*.apk
-          dist/*.aab
-        # body_path: dist/release_notes/release_notes.md

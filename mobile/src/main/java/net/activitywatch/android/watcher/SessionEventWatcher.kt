@@ -3,6 +3,7 @@ package net.activitywatch.android.watcher
 import android.content.Context
 import android.util.Log
 import net.activitywatch.android.RustInterface
+import net.activitywatch.android.AWPreferences
 import net.activitywatch.android.data.AppSession
 import net.activitywatch.android.parser.SessionParser
 import net.activitywatch.android.utils.SessionUtils
@@ -13,6 +14,7 @@ import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.Locale
 import kotlinx.coroutines.*
+import net.activitywatch.android.captureSources
 
 const val SESSION_BUCKET_ID = "aw-watcher-android"
 const val UNLOCK_BUCKET_ID = "aw-watcher-android-unlock"
@@ -78,6 +80,7 @@ class SessionEventWatcher(val context: Context) {
     }
 
     private fun processEventsSinceLastUpdateLocked(): Int {
+        if (!captureAllowed()) return 0
         Log.i(TAG, "Processing session events...")
 
         // Create bucket for session events
@@ -85,21 +88,24 @@ class SessionEventWatcher(val context: Context) {
         ri.createBucketHelper(UNLOCK_BUCKET_ID, "os.lockscreen.unlocks")
 
         lastUpdated = getLastEventTime()
-        Log.w(TAG, "lastUpdated: ${lastUpdated?.toString() ?: "never"}")
+        Log.d(TAG, if (lastUpdated == null) "No prior session checkpoint" else "Loaded local session checkpoint")
 
         val startTimestamp = nextQueryStartTimestamp()
         val sessions = sessionParser.parseUsageEventsSince(startTimestamp)
+        if (!captureAllowed()) return 0
         val unlockTimestamps = sessionParser.parseUnlockEventsSince(startTimestamp)
 
         var eventsSent = 0
 
         for (session in sessions) {
+            if (!captureAllowed()) break
             // Insert session as individual event
             insertSessionAsEvent(session)
             eventsSent++
         }
         
         for (timestamp in unlockTimestamps) {
+            if (!captureAllowed()) break
             val instant = DateTimeUtils.toInstant(java.util.Date(timestamp))
             ri.heartbeatHelper(UNLOCK_BUCKET_ID, instant, 0.0, JSONObject(), 0.0)
         }
@@ -107,6 +113,16 @@ class SessionEventWatcher(val context: Context) {
         Log.i(TAG, "Finished processing events, sent $eventsSent session events and ${unlockTimestamps.size} unlock events")
         return eventsSent
     }
+
+    private fun captureAllowed(): Boolean = captureSources(
+        vaultReady = !ri.needsVaultRecovery,
+        recordingEnabled = AWPreferences(context).isCaptureEnabled(),
+        usageAccessGranted = UsageStatsWatcher.isUsageAllowed(context),
+        browserOptIn = false,
+        accessibilityGranted = false,
+        mediaOptIn = false,
+        notificationAccessGranted = false,
+    ).usageStats
 
 
 
@@ -122,7 +138,7 @@ class SessionEventWatcher(val context: Context) {
         // This prevents merging behavior and treats each session as a separate event
         ri.insertEvent(SESSION_BUCKET_ID, startInstant, duration, data)
 
-        Log.d(TAG, "Inserted session event for ${session.appName}: ${SessionUtils.formatDuration(session.durationMs)} (${session.startTime} - ${session.endTime})")
+        Log.d(TAG, "Inserted one local session event")
     }
 
     /**
@@ -146,7 +162,7 @@ class SessionEventWatcher(val context: Context) {
         ri.createBucketHelper(SESSION_BUCKET_ID, "currentwindow")
         insertSessionAsEvent(session)
 
-        Log.d(TAG, "Inserted individual session event for $appName: ${SessionUtils.formatDuration(durationMs)}")
+        Log.d(TAG, "Inserted one manual session event")
     }
 
     /**

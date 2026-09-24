@@ -1,0 +1,160 @@
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+	D00000000000000000000001 /* PeakActivityCompanionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000001 /* PeakActivityCompanionApp.swift */; };
+	D00000000000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000002 /* ContentView.swift */; };
+	D00000000000000000000003 /* ManualReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000003 /* ManualReport.swift */; };
+	D00000000000000000000004 /* EncryptedCompanionVault.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000004 /* EncryptedCompanionVault.swift */; };
+	D00000000000000000000005 /* CompanionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000005 /* CompanionStore.swift */; };
+	D00000000000000000000006 /* CompanionContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000008 /* CompanionContractTests.swift */; };
+	D00000000000000000000007 /* sync-recovery-v1.json in Resources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000009 /* sync-recovery-v1.json */; };
+	D00000000000000000000011 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C00000000000000000000011 /* SwiftUI.framework */; };
+	D00000000000000000000012 /* FamilyControls.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C00000000000000000000012 /* FamilyControls.framework */; };
+	D00000000000000000000013 /* CryptoKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C00000000000000000000013 /* CryptoKit.framework */; };
+	D00000000000000000000014 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C00000000000000000000014 /* Security.framework */; };
+	D00000000000000000000015 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C00000000000000000000015 /* XCTest.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+	D00000000000000000000080 /* PBXContainerItemProxy */ = {
+		isa = PBXContainerItemProxy;
+		containerPortal = A00000000000000000000001 /* Project object */;
+		proxyType = 1;
+		remoteGlobalIDString = B00000000000000000000001;
+		remoteInfo = PeakActivityCompanion;
+	};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+	C00000000000000000000001 /* PeakActivityCompanionApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeakActivityCompanionApp.swift; sourceTree = "<group>"; };
+	C00000000000000000000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+	C00000000000000000000003 /* ManualReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManualReport.swift; sourceTree = "<group>"; };
+	C00000000000000000000004 /* EncryptedCompanionVault.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptedCompanionVault.swift; sourceTree = "<group>"; };
+	C00000000000000000000005 /* CompanionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionStore.swift; sourceTree = "<group>"; };
+	C00000000000000000000006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+	C00000000000000000000007 /* PeakActivityCompanion.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PeakActivityCompanion.entitlements; sourceTree = "<group>"; };
+	C00000000000000000000008 /* CompanionContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionContractTests.swift; sourceTree = "<group>"; };
+	C00000000000000000000009 /* sync-recovery-v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Fixtures/sync-recovery-v1.json; sourceTree = "<group>"; };
+	C00000000000000000000010 /* PeakActivityCompanion.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PeakActivityCompanion.app; sourceTree = BUILT_PRODUCTS_DIR; };
+	C00000000000000000000016 /* PeakActivityCompanionTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PeakActivityCompanionTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+	C00000000000000000000011 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+	C00000000000000000000012 /* FamilyControls.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FamilyControls.framework; path = System/Library/Frameworks/FamilyControls.framework; sourceTree = SDKROOT; };
+	C00000000000000000000013 /* CryptoKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CryptoKit.framework; path = System/Library/Frameworks/CryptoKit.framework; sourceTree = SDKROOT; };
+	C00000000000000000000014 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+	C00000000000000000000015 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = System/Library/Frameworks/XCTest.framework; sourceTree = SDKROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+	E00000000000000000000001 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (D00000000000000000000011, D00000000000000000000012, D00000000000000000000013, D00000000000000000000014, ); runOnlyForDeploymentPostprocessing = 0; };
+	E00000000000000000000002 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (D00000000000000000000015, ); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+	A00000000000000000000002 = {
+		isa = PBXGroup;
+		children = (A00000000000000000000003, A00000000000000000000004, A00000000000000000000005, A00000000000000000000006, );
+		sourceTree = "<group>";
+	};
+	A00000000000000000000003 /* PeakActivityCompanion */ = {
+		isa = PBXGroup;
+		children = (C00000000000000000000001, C00000000000000000000002, C00000000000000000000003, C00000000000000000000004, C00000000000000000000005, C00000000000000000000006, C00000000000000000000007, );
+		path = PeakActivityCompanion;
+		sourceTree = "<group>";
+	};
+	A00000000000000000000004 /* PeakActivityCompanionTests */ = {
+		isa = PBXGroup;
+		children = (C00000000000000000000008, C00000000000000000000009, );
+		path = PeakActivityCompanionTests;
+		sourceTree = "<group>";
+	};
+	A00000000000000000000005 /* Frameworks */ = {
+		isa = PBXGroup;
+		children = (C00000000000000000000011, C00000000000000000000012, C00000000000000000000013, C00000000000000000000014, C00000000000000000000015, );
+		name = Frameworks;
+		sourceTree = "<group>";
+	};
+	A00000000000000000000006 /* Products */ = {
+		isa = PBXGroup;
+		children = (C00000000000000000000010, C00000000000000000000016, );
+		name = Products;
+		sourceTree = "<group>";
+	};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+	B00000000000000000000001 /* PeakActivityCompanion */ = {
+		isa = PBXNativeTarget;
+		buildConfigurationList = F00000000000000000000002;
+		buildPhases = (E00000000000000000000003, E00000000000000000000001, E00000000000000000000005, );
+		buildRules = ();
+		dependencies = ();
+		name = PeakActivityCompanion;
+		productName = PeakActivityCompanion;
+		productReference = C00000000000000000000010;
+		productType = "com.apple.product-type.application";
+	};
+	B00000000000000000000002 /* PeakActivityCompanionTests */ = {
+		isa = PBXNativeTarget;
+		buildConfigurationList = F00000000000000000000003;
+		buildPhases = (E00000000000000000000004, E00000000000000000000002, E00000000000000000000006, );
+		buildRules = ();
+		dependencies = (D00000000000000000000081, );
+		name = PeakActivityCompanionTests;
+		productName = PeakActivityCompanionTests;
+		productReference = C00000000000000000000016;
+		productType = "com.apple.product-type.bundle.unit-test";
+	};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+	A00000000000000000000001 /* Project object */ = {
+		isa = PBXProject;
+		attributes = {LastSwiftUpdateCheck = 1600; LastUpgradeCheck = 1600; TargetAttributes = {B00000000000000000000001 = {CreatedOnToolsVersion = 16.0; }; B00000000000000000000002 = {CreatedOnToolsVersion = 16.0; TestTargetID = B00000000000000000000001; }; }; };
+		buildConfigurationList = F00000000000000000000001;
+		compatibilityVersion = "Xcode 14.0";
+		developmentRegion = en;
+		hasScannedForEncodings = 0;
+		knownRegions = (en, Base, );
+		mainGroup = A00000000000000000000002;
+		productRefGroup = A00000000000000000000006;
+		projectDirPath = "";
+		projectRoot = "";
+		targets = (B00000000000000000000001, B00000000000000000000002, );
+	};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+	E00000000000000000000005 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+	E00000000000000000000006 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (D00000000000000000000007, ); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+	E00000000000000000000003 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (D00000000000000000000001, D00000000000000000000002, D00000000000000000000003, D00000000000000000000004, D00000000000000000000005, ); runOnlyForDeploymentPostprocessing = 0; };
+	E00000000000000000000004 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (D00000000000000000000006, ); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+	D00000000000000000000081 /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = B00000000000000000000001; targetProxy = D00000000000000000000080; };
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+	F00000000000000000000011 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {CLANG_ENABLE_MODULES = YES; IPHONEOS_DEPLOYMENT_TARGET = 16.0; SDKROOT = iphoneos; SWIFT_VERSION = 5.0; }; name = Debug; };
+	F00000000000000000000012 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {CLANG_ENABLE_MODULES = YES; IPHONEOS_DEPLOYMENT_TARGET = 16.0; SDKROOT = iphoneos; SWIFT_VERSION = 5.0; }; name = Release; };
+	F00000000000000000000021 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_ENTITLEMENTS = PeakActivityCompanion/PeakActivityCompanion.entitlements; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = PeakActivityCompanion/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 16.0; PRODUCT_BUNDLE_IDENTIFIER = app.peakactivity.ioscompanion; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Debug; };
+	F00000000000000000000022 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_ENTITLEMENTS = PeakActivityCompanion/PeakActivityCompanion.entitlements; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = PeakActivityCompanion/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 16.0; PRODUCT_BUNDLE_IDENTIFIER = app.peakactivity.ioscompanion; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Release; };
+	F00000000000000000000031 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {BUNDLE_LOADER = "$(TEST_HOST)"; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 16.0; PRODUCT_BUNDLE_IDENTIFIER = app.peakactivity.ioscompanion.tests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PeakActivityCompanion.app/PeakActivityCompanion"; }; name = Debug; };
+	F00000000000000000000032 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {BUNDLE_LOADER = "$(TEST_HOST)"; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 16.0; PRODUCT_BUNDLE_IDENTIFIER = app.peakactivity.ioscompanion.tests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PeakActivityCompanion.app/PeakActivityCompanion"; }; name = Release; };
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+	F00000000000000000000001 /* Project configuration list */ = {isa = XCConfigurationList; buildConfigurations = (F00000000000000000000011, F00000000000000000000012, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+	F00000000000000000000002 /* App configuration list */ = {isa = XCConfigurationList; buildConfigurations = (F00000000000000000000021, F00000000000000000000022, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+	F00000000000000000000003 /* Test configuration list */ = {isa = XCConfigurationList; buildConfigurations = (F00000000000000000000031, F00000000000000000000032, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+/* End XCConfigurationList section */
+	};
+	rootObject = A00000000000000000000001 /* Project object */;
+}

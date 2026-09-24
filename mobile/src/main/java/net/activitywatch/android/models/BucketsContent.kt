@@ -1,5 +1,6 @@
 package net.activitywatch.android.models
 
+import android.content.Context
 import android.util.Log
 import net.activitywatch.android.RustInterface
 import org.json.JSONObject
@@ -30,15 +31,11 @@ object BucketsContent {
 
     private val COUNT = 25
 
-    init {
-        reload()
-    }
-
-    fun reload() {
+    fun reload(context: Context) {
         Log.i(TAG, "Reloading buckets")
         ITEMS.clear()
         ITEM_MAP.clear()
-        val ri = RustInterface()
+        val ri = RustInterface(context)
         val buckets = ri.getBucketsJSON()
         for(bid in buckets.keys()) {
             addItem(buckets[bid] as JSONObject)

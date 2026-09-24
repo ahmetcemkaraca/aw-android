@@ -6,23 +6,31 @@ import org.junit.Test
 
 class WebUIFragmentTest {
     @Test
-    fun `treats local embedded server hosts as internal`() {
-        // http variants
-        assertTrue(isEmbeddedActivityWatchUrl("http://127.0.0.1:5600/#/settings/"))
-        assertTrue(isEmbeddedActivityWatchUrl("http://localhost:5600/#/settings/"))
-        assertTrue(isEmbeddedActivityWatchUrl("http://[::1]:5600/#/settings/"))
-        // https variants (function explicitly allows both schemes)
-        assertTrue(isEmbeddedActivityWatchUrl("https://127.0.0.1:5600/"))
-        assertTrue(isEmbeddedActivityWatchUrl("https://localhost:5600/"))
-        assertTrue(isEmbeddedActivityWatchUrl("https://[::1]:5600/"))
-        // no-port case
-        assertTrue(isEmbeddedActivityWatchUrl("http://localhost/"))
+    fun `accepts only the embedded loopback dashboard URL`() {
+        assertTrue(isTrustedDashboardUrl("http://127.0.0.1:5600/#/settings/"))
+        assertTrue(isTrustedDashboardUrl("http://127.0.0.1:5600/"))
     }
 
     @Test
-    fun `treats non-loopback hosts as external`() {
-        assertFalse(isEmbeddedActivityWatchUrl("https://activitywatch.net"))
-        assertFalse(isEmbeddedActivityWatchUrl("http://192.168.1.10:5600"))
-        assertFalse(isEmbeddedActivityWatchUrl("not a url"))
+    fun `rejects non-exact dashboard URLs and origins`() {
+        for (url in listOf(
+            "https://127.0.0.1:5600/",
+            "http://localhost:5600/",
+            "http://[::1]:5600/",
+            "http://127.0.0.1:5601/",
+            "http://user@127.0.0.1:5600/",
+            "http://127.0.0.1:5600/settings",
+            "http://127.0.0.1:5600/?token=secret",
+            "not a url",
+        )) assertFalse(isTrustedDashboardUrl(url))
+
+        assertTrue(isTrustedDashboardOrigin("http://127.0.0.1:5600"))
+        for (origin in listOf(
+            "https://127.0.0.1:5600",
+            "http://localhost:5600",
+            "http://127.0.0.1:5601",
+            "http://127.0.0.1:5600?token=secret",
+            "http://127.0.0.1:5600/#/settings",
+        )) assertFalse(isTrustedDashboardOrigin(origin))
     }
 }

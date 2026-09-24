@@ -37,7 +37,7 @@
                 android:layout_height="18dp"
                 android:src="@drawable/ic_open"
                 android:tint="@color/widget_text_muted"
-                android:contentDescription="Open ActivityWatch" />
+                android:contentDescription="Open PeakActivity" />
 
         </LinearLayout>
 

@@ -18,15 +18,12 @@ data class AppSession(
     val durationSeconds: Double get() = durationMs / 1000.0
 
     /**
-     * Convert session to ActivityWatch Event JSON format for heartbeats
+     * Convert session to the shared local activity event format.
      */
     fun toEventData(): JSONObject {
         val data = JSONObject()
         data.put("app", appName)
         data.put("package", packageName)
-        if (className.isNotEmpty()) {
-            data.put("classname", className)
-        }
         return data
     }
 }

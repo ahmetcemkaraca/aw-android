@@ -3,6 +3,7 @@ package net.activitywatch.android
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.AlarmManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
@@ -18,6 +19,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.json.JSONException
 import org.json.JSONObject
+import net.activitywatch.android.watcher.UsageStatsWatcher
 
 private const val TAG = "BackgroundService"
 private const val CHANNEL_ID = "aw_background_channel"
@@ -26,17 +28,12 @@ private const val NOTIFICATION_ID = 1
 class BackgroundService : Service() {
 
     companion object {
-        // Sent by SyncSettingsActivity when the user toggles sync on/off so the
-        // running scheduler reflects the new setting immediately without a restart.
-        const val ACTION_SYNC_ENABLED_CHANGED = "net.activitywatch.android.SYNC_ENABLED_CHANGED"
+        const val ACTION_CAPTURE_STATE_CHANGED = "net.activitywatch.android.CAPTURE_STATE_CHANGED"
     }
 
-    private lateinit var syncScheduler: SyncScheduler
     private lateinit var rustInterface: RustInterface
 
-    // Becomes true after the first full onStartCommand() completes (server started,
-    // workers scheduled, etc.). Guards against ACTION_SYNC_ENABLED_CHANGED skipping
-    // full initialization when Android kills and recreates the service.
+    // Becomes true after the server and local report workers are initialized.
     private var isFullyStarted = false
 
     override fun onCreate() {
@@ -57,31 +54,29 @@ class BackgroundService : Service() {
             else
                 0
         )
+        cancelLegacySyncAlarm()
         rustInterface = RustInterface(this)
-        syncScheduler = SyncScheduler(this)
+        if (rustInterface.needsVaultRecovery) {
+            stopSelf()
+            return
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Only short-circuit for the scheduler-toggle action when the service is already
-        // fully running. If Android killed the service while SyncSettingsActivity was open,
-        // the toggle re-creates the service with this action as its first command — in that
-        // case isFullyStarted is false and we fall through to run the complete startup path
-        // (server start, event parsing, notify scheduling) before honouring the toggle.
-        if (intent?.action == ACTION_SYNC_ENABLED_CHANGED && isFullyStarted) {
-            val enabled = AWPreferences(this).isSyncEnabled()
-            Log.i(TAG, "Sync enabled changed to $enabled; ${if (enabled) "starting" else "stopping"} scheduler")
-            if (enabled) syncScheduler.start() else syncScheduler.stop()
+        if (rustInterface.needsVaultRecovery) {
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
+        if (intent?.action == ACTION_CAPTURE_STATE_CHANGED && isFullyStarted) {
+            (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+                .notify(NOTIFICATION_ID, createNotification())
             return START_STICKY
         }
-
         Log.i(TAG, "BackgroundService started")
 
-        // Ensure the API key is written to config.toml before the server reads it.
-        // MainActivity does this when the user launches the app normally, but
-        // BackgroundService is also started on BOOT_COMPLETED (via SyncAlarmReceiver)
-        // without ever going through MainActivity, so we need to guarantee the key
-        // exists here as well.
-        ensureDashboardApiKey(this)
+        if (!clearLegacyDashboardApiKey(this)) {
+            Log.w(TAG, "Could not remove the legacy dashboard API key from config")
+        }
 
         // Start the server
         rustInterface.startServerTask()
@@ -115,22 +110,18 @@ class BackgroundService : Service() {
             }
         }
 
-        // Start the sync scheduler only when the user has enabled sync.
-        // Default is off — the sync directory is not accessible to other apps
-        // (Android scoped storage), so auto-sync would silently no-op for most users.
-        if (prefs.isSyncEnabled()) {
-            syncScheduler.start()
-        } else {
-            Log.i(TAG, "Sync is disabled (default). Enable it in settings to start syncing.")
-        }
-
         // Schedule event parsing
         scheduleEventParsing()
 
         // Schedule activity-time notifications (aw-notify)
         scheduleNotifyChecks()
 
+        // Keep one periodic encrypted-manifest sync worker; consent and vault state are rechecked per run.
+        scheduleSyncWorker()
+
         isFullyStarted = true
+        (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+            .notify(NOTIFICATION_ID, createNotification())
         return START_STICKY
     }
 
@@ -148,6 +139,24 @@ class BackgroundService : Service() {
             notifyRequest
         )
         Log.i(TAG, "Scheduled activity-time notification worker (every 15 minutes)")
+    }
+
+    private fun scheduleSyncWorker() {
+        val constraints = androidx.work.Constraints.Builder()
+            .setRequiredNetworkType(androidx.work.NetworkType.CONNECTED)
+            .build()
+        val syncRequest = androidx.work.PeriodicWorkRequest.Builder(
+            net.activitywatch.android.workers.SyncWorker::class.java,
+            15, java.util.concurrent.TimeUnit.MINUTES
+        )
+            .setConstraints(constraints)
+            .addTag("SyncWorker")
+            .build()
+        androidx.work.WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "SyncWorker",
+            androidx.work.ExistingPeriodicWorkPolicy.KEEP,
+            syncRequest
+        )
     }
 
     private fun scheduleEventParsing() {
@@ -181,7 +190,6 @@ class BackgroundService : Service() {
 
     override fun onDestroy() {
         Log.i(TAG, "BackgroundService destroyed")
-        if (::syncScheduler.isInitialized) syncScheduler.stop()
         super.onDestroy()
     }
 
@@ -191,8 +199,8 @@ class BackgroundService : Service() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val name = "Background tracking"
-            val descriptionText = "Keeps ActivityWatch running in the background"
+            val name = "PeakActivity local reports"
+            val descriptionText = "Keeps the local reports service available and shows recording status"
             val importance = NotificationManager.IMPORTANCE_LOW
             val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
                 description = descriptionText
@@ -201,6 +209,18 @@ class BackgroundService : Service() {
                 getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.createNotificationChannel(channel)
         }
+    }
+
+    private fun cancelLegacySyncAlarm() {
+        val intent = Intent("net.activitywatch.android.SYNC_ALARM").setPackage(packageName)
+        val pendingIntent = PendingIntent.getBroadcast(
+            this,
+            0,
+            intent,
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+        ) ?: return
+        (getSystemService(Context.ALARM_SERVICE) as AlarmManager).cancel(pendingIntent)
+        pendingIntent.cancel()
     }
 
     private fun createNotification(): Notification {
@@ -212,9 +232,21 @@ class BackgroundService : Service() {
                 )
             }
 
+        val content = if (!isFullyStarted) getString(R.string.service_starting) else {
+            val state = captureState(
+                AWPreferences(this).isCaptureEnabled(),
+                UsageStatsWatcher.isUsageAllowed(this),
+            )
+            when (state) {
+                CaptureState.RECORDING -> getString(R.string.recording_running)
+                CaptureState.PAUSED -> getString(R.string.recording_paused)
+                CaptureState.PERMISSION_REQUIRED -> getString(R.string.recording_permission_required)
+            }
+        }
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("ActivityWatch")
-            .setContentText("Running in the background")
+            .setContentTitle(getString(R.string.app_name))
+            .setContentText(content)
             .setSmallIcon(R.mipmap.aw_launcher_round) // Make sure this icon exists or use a fallback
             .setContentIntent(pendingIntent)
             .setPriority(NotificationCompat.PRIORITY_LOW)

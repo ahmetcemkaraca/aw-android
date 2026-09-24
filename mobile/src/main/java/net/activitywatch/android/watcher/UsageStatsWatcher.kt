@@ -2,7 +2,6 @@ package net.activitywatch.android.watcher
 
 import android.Manifest
 import android.app.AlarmManager
-import android.app.AlertDialog
 import android.app.AppOpsManager
 import android.app.PendingIntent
 import android.app.usage.UsageEvents
@@ -12,13 +11,10 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.*
-import android.os.Build.VERSION
-import android.os.Build.VERSION_CODES
-import android.provider.Settings
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityManager
-import android.widget.Toast
+import net.activitywatch.android.captureSources
 import net.activitywatch.android.RustInterface
 import net.activitywatch.android.models.Event
 import net.activitywatch.android.watcher.SessionEventWatcher
@@ -89,40 +85,34 @@ class UsageStatsWatcher constructor(val context: Context) {
     }
 
     private fun getUSM(): UsageStatsManager? {
-        val usageIsAllowed = isUsageAllowed(context)
-
-        return if (usageIsAllowed) {
+        return if (usageSourceEnabled()) {
             // Get UsageStatsManager stuff
             val usm: UsageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
             usm
         } else {
-            Log.w(TAG, "Was not allowed access to UsageStats, enable in settings.")
-
-            // Unused, deprecated in favor of OnboardingActivity
-            /*
-            Handler(Looper.getMainLooper()).post {
-                // Create an alert dialog to inform the user
-                AlertDialog.Builder(context)
-                    .setTitle("ActivityWatch needs Usage Access")
-                    .setMessage("This gives ActivityWatch access to your device use data, which is required for the basic functions of the application.\n\nWe respect your privacy, no data leaves your device.")
-                    .setPositiveButton("Continue") { _, _ ->
-                        context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
-                    }
-                    .setNegativeButton("Cancel") { dialog, _ ->
-                        dialog.cancel()
-                        System.exit(0)
-                    }
-                    .show()
-            }
-             */
+            Log.w(TAG, "Usage access is unavailable; skipping activity queries")
             null
         }
     }
+
+    private fun usageSourceEnabled(): Boolean = captureSources(
+        vaultReady = !ri.needsVaultRecovery,
+        recordingEnabled = net.activitywatch.android.AWPreferences(context).isCaptureEnabled(),
+        usageAccessGranted = isUsageAllowed(context),
+        browserOptIn = false,
+        accessibilityGranted = false,
+        mediaOptIn = false,
+        notificationAccessGranted = false,
+    ).usageStats
 
     private var alarmMgr: AlarmManager? = null
     private lateinit var alarmIntent: PendingIntent
 
     fun setupAlarm() {
+        if (!usageSourceEnabled()) {
+            cancelAlarm()
+            return
+        }
         alarmMgr = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         alarmIntent = Intent(context, AlarmReceiver::class.java).let { intent ->
             intent.action = "net.activitywatch.android.watcher.LOG_DATA"
@@ -138,16 +128,27 @@ class UsageStatsWatcher constructor(val context: Context) {
         )
     }
 
+    fun cancelAlarm() {
+        val intent = Intent(context, AlarmReceiver::class.java).apply {
+            action = "net.activitywatch.android.watcher.LOG_DATA"
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            0,
+            intent,
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE,
+        ) ?: return
+        (context.getSystemService(Context.ALARM_SERVICE) as AlarmManager).cancel(pendingIntent)
+        pendingIntent.cancel()
+    }
+
 
     fun queryUsage() {
+        if (ri.needsVaultRecovery || !net.activitywatch.android.AWPreferences(context).isCaptureEnabled()) return
         val usm = getUSM() ?: return
 
-        // Print per application
         val usageStats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, 0, Long.MAX_VALUE)
-        Log.i(TAG, "usageStats.size=${usageStats.size}")
-        for(e in usageStats) {
-            Log.i(TAG, "${e.packageName}: ${e.totalTimeInForeground/1000}")
-        }
+        Log.i(TAG, "Usage stats entries inspected: ${usageStats.size}")
     }
 
     private fun getLastEvent(): JSONObject? {
@@ -164,8 +165,6 @@ class UsageStatsWatcher constructor(val context: Context) {
     // TODO: Maybe return end of event instead of start?
     private fun getLastEventTime(): Instant? {
         val lastEvent = getLastEvent()
-        Log.w(TAG, "Last event: $lastEvent")
-
         return if(lastEvent != null) {
             val timestampString = lastEvent.getString("timestamp")
             // Instant.parse("2014-10-23T00:35:14.800Z").toEpochMilli()
@@ -189,7 +188,7 @@ class UsageStatsWatcher constructor(val context: Context) {
             ri.createBucketHelper(bucket_id, "currentwindow")
             ri.createBucketHelper(unlock_bucket_id, "os.lockscreen.unlocks")
             lastUpdated = getLastEventTime()
-            Log.w(TAG, "lastUpdated: ${lastUpdated?.toString() ?: "never"}")
+        Log.d(TAG, if (lastUpdated == null) "No prior session checkpoint" else "Loaded local session checkpoint")
 
             val usm = getUSM() ?: return 0
 
@@ -219,7 +218,7 @@ class UsageStatsWatcher constructor(val context: Context) {
                 }
 
                 // Log activity
-                val awEvent = Event.fromUsageEvent(event, context, includeClassname = true)
+                val awEvent = Event.fromUsageEvent(event, context)
                 val pulsetime: Double
                 when(event.eventType) {
                     UsageEvents.Event.ACTIVITY_RESUMED -> {
@@ -248,18 +247,10 @@ class UsageStatsWatcher constructor(val context: Context) {
         override fun onProgressUpdate(vararg progress: Instant) {
             lastUpdated = progress[0]
             Log.i(TAG, "Progress: ${lastUpdated.toString()}")
-            // The below is useful in testing, but otherwise just noisy.
-            //Toast.makeText(context, "Logging data, progress: $lastUpdated", Toast.LENGTH_LONG).show()
         }
 
         override fun onPostExecute(result: Int?) {
             Log.w(TAG, "Finished SendHeartbeatTask, sent $result events")
-            // The below is useful in testing, but otherwise just noisy.
-            /*
-            if(result != 0) {
-                Toast.makeText(context, "Completed logging of data! Logged events: $result", Toast.LENGTH_LONG).show()
-            }
-            */
         }
     }
 
@@ -272,6 +263,7 @@ class UsageStatsWatcher constructor(val context: Context) {
         ReplaceWith("sendHeartbeatsSuspend()")
     )
     fun sendHeartbeats() {
+        if (!usageSourceEnabled()) return
         if (!useSessionBasedEvents) {
             Log.w(TAG, "Starting SendHeartbeatTask (individual events)")
             SendHeartbeatsTask().execute()
@@ -286,6 +278,7 @@ class UsageStatsWatcher constructor(val context: Context) {
      * SendHeartbeatsTask is not awaitable; callers on the legacy path should use sendHeartbeats().
      */
     suspend fun sendHeartbeatsSuspend() {
+        if (!usageSourceEnabled()) return
         if (useSessionBasedEvents) {
             sessionWatcher.sendSessionEventsSuspend()
         }

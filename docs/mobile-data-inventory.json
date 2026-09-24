@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "status": "development_candidate",
+  "recording_default": "off_for_new_install",
+  "migration_default": "preserve_existing_recording_setting",
+  "storage": {
+    "activity_database": "SQLCipher after Android Keystore unlock; legacy data uses an explicit preview-and-accept migration",
+    "os_backup": "disabled",
+    "analytics_or_advertising": "none"
+  },
+  "sources": [
+    {
+      "id": "android_usage_stats",
+      "opt_in": "recording_switch plus Android Usage Access",
+      "fields": ["application_label_if_visible", "package_id", "activity_start_time", "activity_duration"],
+      "purpose": "local app-usage timeline and reports",
+      "network": "none_from_capture; network sync remains disabled pending Android relay worker and signed purpose"
+    },
+    {
+      "id": "browser_accessibility",
+      "opt_in": "separate browser-capture switch, disclosure and Android Accessibility setting",
+      "fields": ["supported_browser_url", "supported_browser_page_title", "browser_id"],
+      "purpose": "optional local browser activity timeline",
+      "network": "none_from_capture; network sync remains disabled pending Android relay worker and signed purpose",
+      "privacy_mode_detection": "abstains when accessible browser text explicitly signals incognito/private browsing; completeness is unverified across browser and device versions"
+    },
+    {
+      "id": "media_sessions",
+      "opt_in": "separate media-capture switch, disclosure and Android notification access",
+      "fields": ["media_app_id", "track_title", "artist", "album", "playback_state"],
+      "purpose": "optional local media playback timeline",
+      "network": "none_from_capture; network sync remains disabled pending Android relay worker and signed purpose",
+      "notification_text": "ignored"
+    }
+  ],
+  "release_review": {
+    "play_data_safety_form": "not approved",
+    "privacy_policy_mapping": "requires human review",
+    "release_signing_identity": "not provisioned"
+  }
+}

@@ -1,82 +1,25 @@
-aw-android
-==========
+# PeakActivity Android development candidate
 
-[![GitHub Actions badge](https://github.com/ActivityWatch/aw-android/workflows/Build/badge.svg)](https://github.com/ActivityWatch/aw-android/actions)
-[![Play Store ratings](https://PlayBadges.pavi2410.me/badge/ratings?id=net.activitywatch.android&country=us)](https://play.google.com/store/apps/details?id=net.activitywatch.android)
+This isolated branch is an unpublished development candidate. It is not a Google
+Play or F-Droid release, and no APK/AAB has been signed, uploaded or published.
+Inherited tag, signing and publish workflow steps and encrypted signing
+credentials have been removed from this candidate. The existing application ID
+remains unchanged pending an explicit migration decision; no release is approved.
 
-A very work-in-progress ActivityWatch app for Android.
+PeakActivity Android uses UsageStats only after the user starts recording.
+Browser URL/title and media-session sources require separate opt-ins. Reports,
+manual entry and settings remain available when capture is paused or UsageStats
+access is denied. Local E2EE pairing and recovery are available in the WebView
+settings. Network sync remains off until the Android relay worker and signed Egress
+policy are configured.
 
-Available on Google Play:
+## Local source checks
 
-<a title="Get it on Google Play" href="https://play.google.com/store/apps/details?id=net.activitywatch.android">
-    <img src="https://play.google.com/intl/en_us/badges/images/generic/en_badge_web_generic.png" width="240px"/>
-</a>
-
-
-## Usage
-
-Install the APK from the Play Store or from the [GitHub releases](https://github.com/ActivityWatch/aw-android/releases).
-
-### For Oculus Quest
-
-> **Note** 
-> At some point a Quest system upgrade broke the ability to allow ActivityWatch access to usage stats. This can be fixed by manually assigning the needed permission using adb: `adb shell appops set net.activitywatch.android android:get_usage_stats allow`
-
-It's available [on SideQuest](https://sidequestvr.com/#/app/201). 
-
-
-## Building
-
-To build this app you first need to build aw-server-rust (`./aw-server-rust`) and aw-webui (`./aw-server-rust/aw-webui`).
-
-If you haven't already, initialize the submodules with: `git submodule update --init --recursive`
-
-### Building aw-server-rust
-
-> **Note**
-> If you don't want to go through the hassle of getting Rust up and running, you can download the jniLibs from [aw-server-rust CI artifacts](https://github.com/ActivityWatch/aw-server-rust/actions/workflows/build.yml) and place them in `mobile/src/main/jniLibs` manually instead of following this section.
-
-To build aw-server-rust you need to have Rust nightly installed (with rustup). Then you can build it with:
+Run the dependency-free mobile privacy contract:
 
 ```sh
-export ANDROID_NDK_HOME=`pwd`/aw-server-rust/NDK  # The path to your NDK
-pushd aw-server-rust && ./install-ndk.sh; popd    # This configures the NDK for use with Rust, and installs the NDK if missing
-env RELEASE=false make aw-server-rust             # Set RELEASE=true to build in release mode (slower build, harder to debug)
+python3 -m unittest discover -s scripts/tests -p 'test_mobile_privacy.py' -v
 ```
 
-> **Note**
-> The Android NDK will be downloaded by `install-ndk.sh` to `aw-server-rust/NDK` if `ANDROID_NDK_HOME` not set. You can create a symlink pointing to the real location if you already have it elsewhere (such as /opt/android-ndk/ on Arch Linux).
-
-### Building aw-webui
-
-To build aw-webui you need a recent version of node/npm installed. You can then build it with `make aw-webui`.
-
-### Putting it all together
-
-Once both aw-server-rust and aw-webui is built, you can build the Android app as any other Android app using Android Studio.
-
-### Making a release
-
-Use the **Release** workflow to bump the version, commit it, and create the
-tag in one atomic step. This ensures the committed `versionName` matches the
-tag (required for F-Droid, which builds from tagged source).
-
-1. Go to **Actions → Release → Run workflow**
-2. Enter the version number (e.g. `0.12.2`, without the `v` prefix)
-3. Click **Run workflow**
-
-The workflow will:
-- Update `versionName` in `mobile/build.gradle`
-- Commit the change to master
-- Create and push tag `v{version}`
-- Trigger the Build workflow (requires a `RELEASE_PAT` secret — a GitHub PAT with `repo` scope)
-
-This will trigger a GitHub Actions workflow which will build the app and upload it to GitHub releases, and deploy it to the Play Store (including the metadata in `./fastlane/metadata/android`).
-
-> **Note for maintainers:** Add a `RELEASE_PAT` secret (repo-scoped GitHub PAT) so
-> the tag push from the Release workflow triggers the Build workflow. Without it,
-> the Build workflow must be triggered manually after the tag is pushed.
-
-## More info
-
-For more info, check out the main [ActivityWatch repo](https://github.com/ActivityWatch/activitywatch).
+Android instrumentation, Play Data Safety declarations, signing identity and
+store acceptance remain open and must be completed before distribution.

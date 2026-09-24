@@ -3,34 +3,32 @@ package net.activitywatch.android.models
 import android.app.usage.UsageEvents
 import android.content.Context
 import android.content.pm.PackageManager
-import android.util.Log
 import org.json.JSONObject
 import org.threeten.bp.DateTimeUtils
 import org.threeten.bp.Instant
 
+internal fun createUsageStatsEventData(packageName: String, appLabel: String?): JSONObject {
+    val data = JSONObject()
+    data.put("app", appLabel?.trim()?.takeIf { it.isNotEmpty() } ?: packageName)
+    data.put("package", packageName)
+    return data
+}
+
 data class Event(val timestamp: Instant, val duration: Double = 0.0, val data: JSONObject) {
     companion object {
-        fun fromUsageEvent(usageEvent: UsageEvents.Event, context: Context, includeClassname: Boolean = true): Event {
+        fun fromUsageEvent(usageEvent: UsageEvents.Event, context: Context): Event {
             val timestamp = DateTimeUtils.toInstant(java.util.Date(usageEvent.timeStamp))
             val pm = context.packageManager
             val appName = try {
-                pm.getApplicationLabel(pm.getApplicationInfo(usageEvent.packageName, PackageManager.GET_META_DATA or PackageManager.MATCH_UNINSTALLED_PACKAGES))
-            } catch(e: PackageManager.NameNotFoundException) {
-                "Unknown (${usageEvent.packageName})"
-            }
-
-            // Construct the data object in an exception-safe manner
-            val data = JSONObject()
-            data.put("app", appName)
-            data.put("package", usageEvent.packageName)
-            if(includeClassname) {
-                data.put("classname", usageEvent.className)
+                pm.getApplicationLabel(pm.getApplicationInfo(usageEvent.packageName, 0))?.toString()
+            } catch (_: PackageManager.NameNotFoundException) {
+                null
             }
 
             return Event(
                 timestamp = timestamp,
                 duration = 0.0,
-                data = data
+                data = createUsageStatsEventData(usageEvent.packageName, appName)
             )
         }
     }

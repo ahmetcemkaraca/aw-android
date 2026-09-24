@@ -45,35 +45,30 @@ class AWPreferences(context: Context) {
         sharedPreferences.edit().putBoolean("hasRequestedNotificationPermission", true).apply()
     }
 
-    // Sync is off by default; user must explicitly enable it once a sync directory
-    // is configured (e.g. via Storage Access Framework).
-    fun isSyncEnabled(): Boolean {
-        return sharedPreferences.getBoolean("syncEnabled", false)
+    // Existing installations preserve their prior always-on behavior until a user changes it.
+    // New installs explicitly choose Start in onboarding; no stored choice means paused.
+    fun isCaptureEnabled(): Boolean {
+        return sharedPreferences.getBoolean("captureEnabled", !isFirstTime())
     }
 
-    fun setSyncEnabled(enabled: Boolean) {
-        sharedPreferences.edit().putBoolean("syncEnabled", enabled).apply()
+    fun setCaptureEnabled(enabled: Boolean) {
+        sharedPreferences.edit().putBoolean("captureEnabled", enabled).apply()
     }
 
-    // SAF URI for the user-chosen sync directory (content:// URI string, or null if not configured).
-    // The URI has persisted permission granted via contentResolver.takePersistableUriPermission().
-    fun getSyncDirUri(): String? {
-        return sharedPreferences.getString("syncDirUri", null)
+    fun isBrowserCaptureEnabled(): Boolean {
+        return sharedPreferences.getBoolean("browserCaptureEnabled", false)
     }
 
-    fun setSyncDirUri(uri: String?) {
-        sharedPreferences.edit().putString("syncDirUri", uri).apply()
+    fun setBrowserCaptureEnabled(enabled: Boolean) {
+        sharedPreferences.edit().putBoolean("browserCaptureEnabled", enabled).apply()
     }
 
-    // Dashboard authentication. Defaults to true so first-run gets a key generated
-    // automatically. Set to false when the user explicitly disables auth in settings;
-    // ensureDashboardApiKey() checks this before generating a new key so that the
-    // "disabled" setting survives app restarts.
-    fun isDashboardAuthEnabled(): Boolean {
-        return sharedPreferences.getBoolean("dashboardAuthEnabled", true)
+    fun isMediaCaptureEnabled(): Boolean {
+        return sharedPreferences.getBoolean("mediaCaptureEnabled", false)
     }
 
-    fun setDashboardAuthEnabled(enabled: Boolean) {
-        sharedPreferences.edit().putBoolean("dashboardAuthEnabled", enabled).commit()
+    fun setMediaCaptureEnabled(enabled: Boolean) {
+        sharedPreferences.edit().putBoolean("mediaCaptureEnabled", enabled).apply()
     }
+
 }

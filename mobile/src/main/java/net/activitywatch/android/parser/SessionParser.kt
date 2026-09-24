@@ -207,7 +207,7 @@ class SessionParser(private val context: Context) {
                         endTime = endTime
                     )
                 )
-                Log.d(TAG, "Session: $appName ${duration}ms")
+                Log.d(TAG, "Parsed one usage session")
             }
         }
 

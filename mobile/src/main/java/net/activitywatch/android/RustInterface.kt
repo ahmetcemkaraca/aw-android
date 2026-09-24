@@ -6,6 +6,9 @@ import android.os.Looper
 import android.provider.Settings
 import android.system.Os
 import android.util.Log
+import java.io.IOException
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.concurrent.Executors
 import net.activitywatch.android.models.Event
 import org.json.JSONArray
@@ -15,49 +18,161 @@ import org.threeten.bp.Instant
 
 private const val TAG = "RustInterface"
 
-class RustInterface(context: Context? = null) {
+class RustInterface(context: Context) {
 
-    private val appContext: Context? = context?.applicationContext
+    private val appContext: Context = context.applicationContext
+    @Volatile private var vaultUnlocked = false
+    val needsVaultRecovery: Boolean
+        get() = !vaultUnlocked
 
     init {
         // NOTE: This doesn't work, probably because I can't get gradle to not strip symbols on
         // release builds
         Os.setenv("RUST_BACKTRACE", "1", true)
 
-        if (context != null) {
-            Os.setenv("SQLITE_TMPDIR", context.cacheDir.absolutePath, true)
-        }
+        Os.setenv("SQLITE_TMPDIR", appContext.cacheDir.absolutePath, true)
 
         System.loadLibrary("aw_server")
 
         initialize()
-        if (context != null) {
-            setDataDir(context.filesDir.absolutePath)
+        setDataDir(appContext.filesDir.absolutePath)
+        when (val result = VaultKeyStore.loadOrCreate(appContext, VaultKeyStore.databaseExists(appContext))) {
+            is VaultKeyResult.Unlocked -> {
+                try {
+                    vaultUnlocked = setVaultKey(result.key) && initializeVault()
+                } finally {
+                    result.key.fill(0)
+                }
+            }
+            VaultKeyResult.NeedsRecovery, VaultKeyResult.Unavailable -> vaultUnlocked = false
         }
-    }
-
-    companion object {
-        var serverStarted = false
     }
 
     private external fun initialize()
     private external fun greeting(pattern: String): String
     private external fun startServer()
     private external fun setDataDir(path: String)
-    external fun getBuckets(): String
-    external fun createBucket(bucket: String): String
-    external fun getEvents(bucket_id: String, limit: Int): String
-    external fun heartbeat(bucket_id: String, event: String, pulsetime: Double): String
-    external fun query(query: String, timeperiods: String): String
-    external fun androidQuery(timeperiods: String): String
-    external fun migrateHostname(hostname: String): String
+    private external fun setVaultKey(key: ByteArray): Boolean
+    private external fun initializeVault(): Boolean
+    private external fun nativeGetBuckets(): String
+    private external fun nativeCreateBucket(bucket: String): String
+    private external fun nativeGetEvents(bucket_id: String, limit: Int): String
+    private external fun nativeHeartbeat(bucket_id: String, event: String, pulsetime: Double): String
+    private external fun nativeQuery(query: String, timeperiods: String): String
+    private external fun nativeAndroidQuery(timeperiods: String): String
+    private external fun nativeMigrateHostname(hostname: String): String
+    private external fun nativePreviewLegacyMigration(): String
+    private external fun nativeMigrateLegacyVault(key: ByteArray, accepted: Boolean): Boolean
+    private external fun nativeLocalCommand(command: String, arguments: String): String
+
+    fun getBuckets(): String = if (vaultUnlocked) nativeGetBuckets() else VAULT_ERROR
+    fun createBucket(bucket: String): String = if (vaultUnlocked) nativeCreateBucket(bucket) else VAULT_ERROR
+    fun getEvents(bucket_id: String, limit: Int): String = if (vaultUnlocked) nativeGetEvents(bucket_id, limit) else VAULT_ERROR
+    fun heartbeat(bucket_id: String, event: String, pulsetime: Double): String =
+        if (vaultUnlocked) nativeHeartbeat(bucket_id, event, pulsetime) else VAULT_ERROR
+    fun query(query: String, timeperiods: String): String =
+        if (vaultUnlocked) nativeQuery(query, timeperiods) else VAULT_ERROR
+    fun androidQuery(timeperiods: String): String = if (vaultUnlocked) nativeAndroidQuery(timeperiods) else VAULT_ERROR
+    fun migrateHostname(hostname: String): String =
+        if (vaultUnlocked) nativeMigrateHostname(hostname) else VAULT_ERROR
+
+    fun previewLegacyMigration(): JSONObject = try {
+        JSONObject(nativePreviewLegacyMigration())
+    } catch (_: JSONException) {
+        JSONObject(VAULT_ERROR)
+    }
+
+    fun migrateLegacyVault(): Boolean {
+        val result = VaultKeyStore.keyForAcceptedMigration(appContext)
+        if (result !is VaultKeyResult.Unlocked) return false
+        try {
+            if (!nativeMigrateLegacyVault(result.key, accepted = true)) return false
+            vaultUnlocked = setVaultKey(result.key) && initializeVault()
+            return vaultUnlocked
+        } finally {
+            result.key.fill(0)
+        }
+    }
+
+    fun localNativeCommand(command: String, arguments: String): String =
+        if (vaultUnlocked) nativeLocalCommand(command, arguments) else "{\"error\":\"vault_unavailable\"}"
+
+    fun isNetworkSyncEnabled(): Boolean {
+        if (!vaultUnlocked) return false
+        val storedConsent = storedSyncConsentEnabled() ?: return true
+        if (!storedConsent) return false
+        val token = localAdminSession() ?: return true
+        return try {
+            val response = localAdminRequest("/api/0/sync/enabled", "GET", token)
+            if (response.statusCode in 200..299) JSONObject(response.body).optBoolean("enabled", false)
+            else if (response.statusCode in 400..499) false
+            else true
+        } catch (_: IOException) {
+            true
+        } catch (_: JSONException) {
+            true
+        }
+    }
+
+    fun runNetworkSync(): JSONObject {
+        val response = JSONObject()
+        if (!vaultUnlocked) return response.put("success", false).put("retryable", false)
+        val token = localAdminSession()
+            ?: return response.put("success", false).put("retryable", true)
+        return try {
+            val result = localAdminRequest("/api/0/sync/run", "POST", token)
+            response.put("success", result.statusCode in 200..299)
+                .put("retryable", result.statusCode == 408 || result.statusCode == 429 || result.statusCode in 500..599)
+        } catch (_: IOException) {
+            response.put("success", false).put("retryable", true)
+        } catch (_: Exception) {
+            response.put("success", false).put("retryable", false)
+        }
+    }
+
+    private fun storedSyncConsentEnabled(): Boolean? = try {
+        val result = JSONObject(nativeLocalCommand("sync_enabled", "{}"))
+        if (result.has("error")) null else result.optBoolean("result", false)
+    } catch (_: JSONException) {
+        null
+    }
+
+    private fun localAdminSession(): String? = try {
+        val result = JSONObject(nativeLocalCommand("local_session", "{}"))
+        if (result.has("error")) null else result.optString("result").takeIf { it.isNotBlank() }
+    } catch (_: JSONException) {
+        null
+    }
+
+    private data class LocalResponse(val statusCode: Int, val body: String)
+
+    @Throws(IOException::class)
+    private fun localAdminRequest(path: String, method: String, token: String): LocalResponse {
+        val connection = URL("http://127.0.0.1:5600$path").openConnection() as HttpURLConnection
+        connection.requestMethod = method
+        connection.connectTimeout = 3_000
+        connection.readTimeout = 120_000
+        connection.instanceFollowRedirects = false
+        connection.useCaches = false
+        connection.setRequestProperty("Authorization", "Bearer $token")
+        connection.setRequestProperty("Accept", "application/json")
+        return try {
+            val status = connection.responseCode
+            val body = if (method == "GET" && status in 200..299) {
+                connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            } else ""
+            LocalResponse(status, body)
+        } finally {
+            connection.disconnect()
+        }
+    }
 
     fun sayHello(to: String): String {
         return greeting(to)
     }
 
     fun startServerTask() {
-        if (!serverStarted) {
+        if (vaultUnlocked && !serverStarted) {
             // check if port 5600 is already in use
             try {
                 val socket = java.net.ServerSocket(5600)
@@ -88,11 +203,8 @@ class RustInterface(context: Context? = null) {
     }
 
     fun createBucketHelper(bucket_id: String, type: String, client: String = "aw-android") {
-        val context =
-            appContext
-                ?: throw IllegalStateException(
-                    "Context is required but was not provided during initialization"
-                )
+        if (!vaultUnlocked) return
+        val context = appContext
         val hostname = getDeviceName(context)
         if (bucket_id in getBucketsJSON().keys().asSequence()) {
             Log.i(TAG, "Bucket with ID '$bucket_id', already existed. Not creating.")
@@ -130,6 +242,7 @@ class RustInterface(context: Context? = null) {
         data: JSONObject,
         pulsetime: Double = 60.0
     ) {
+        if (!vaultUnlocked) return
         val event = Event(timestamp, duration, data)
         val msg = heartbeat(bucket_id, event.toString(), pulsetime)
         // Log.w(TAG, msg)
@@ -146,12 +259,14 @@ class RustInterface(context: Context? = null) {
      * @param data Event metadata (app name, package, etc.)
      */
     fun insertEvent(bucket_id: String, timestamp: Instant, duration: Double, data: JSONObject) {
+        if (!vaultUnlocked) return
         val event = Event(timestamp, duration, data)
         val msg = heartbeat(bucket_id, event.toString(), 0.0)
         Log.d(TAG, "insertEvent response: $msg")
     }
 
     fun getBucketsJSON(): JSONObject {
+        if (!vaultUnlocked) return JSONObject()
         // TODO: Handle errors
         val json = JSONObject(getBuckets())
         if (json.length() <= 0) {
@@ -161,12 +276,13 @@ class RustInterface(context: Context? = null) {
     }
 
     fun getEventsJSON(bucket_id: String, limit: Int = 0): JSONArray {
+        if (!vaultUnlocked) return JSONArray()
         // TODO: Handle errors
         val result = getEvents(bucket_id, limit)
         return try {
             JSONArray(result)
         } catch (e: JSONException) {
-            Log.e(TAG, "Error when trying to fetch events from bucket: $result")
+            Log.e(TAG, "The local activity response could not be parsed")
             JSONArray()
         }
     }
@@ -182,6 +298,11 @@ class RustInterface(context: Context? = null) {
             .replace(Regex("[^a-z0-9_-]+"), "_")
             .trim('_')
             .ifEmpty { "unknown" }
+    }
+
+    companion object {
+        private const val VAULT_ERROR = "{\"error\":\"vault_unavailable\"}"
+        @Volatile var serverStarted = false
     }
 
 }

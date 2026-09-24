@@ -56,4 +56,11 @@ internal class BrowserSessionTracker(
         lastWindowTitle = newWindowTitle
         return true
     }
+
+    fun discardCurrentSession() {
+        lastUrlTimestamp = null
+        lastUrl = null
+        lastBrowser = null
+        lastWindowTitle = null
+    }
 }

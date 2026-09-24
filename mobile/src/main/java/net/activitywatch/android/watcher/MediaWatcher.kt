@@ -11,14 +11,16 @@ import android.os.HandlerThread
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
+import net.activitywatch.android.captureSources
+import net.activitywatch.android.AWPreferences
 import net.activitywatch.android.RustInterface
 import org.json.JSONObject
 import java.util.concurrent.ConcurrentHashMap
 import org.threeten.bp.Instant
 
 /**
- * Watches active media sessions (music, podcasts, video) and logs playback events
- * to ActivityWatch using the NotificationListenerService API.
+ * Watches active media sessions (music, podcasts, video) only when separately
+ * opted in through Android's notification-listener settings.
  *
  * Requires the user to grant "Notification Access" in system settings.
  *
@@ -45,6 +47,14 @@ class MediaWatcher : NotificationListenerService() {
             // Parse colon-separated list and match exactly to avoid false positives
             return enabledListeners.split(":").any { it == flattenedComponent }
         }
+
+        fun requestRefresh(context: android.content.Context) {
+            val preferences = AWPreferences(context)
+            if (preferences.isCaptureEnabled() && preferences.isMediaCaptureEnabled()
+                && isNotificationAccessGranted(context)) {
+                NotificationListenerService.requestRebind(ComponentName(context, MediaWatcher::class.java))
+            }
+        }
     }
 
     // Written from the handlerThread (see onCreate), read from handlerThread callbacks/polling;
@@ -67,6 +77,7 @@ class MediaWatcher : NotificationListenerService() {
         super.onCreate()
         Log.i(TAG, "MediaWatcher created")
         handler = android.os.Handler(handlerThread.looper)
+        sessionManager = getSystemService(MEDIA_SESSION_SERVICE) as? MediaSessionManager
 
         // RustInterface construction and createBucketHelper() make blocking JNI/HTTP calls to the
         // local aw-server (which may not be running yet at boot). Run them on the handlerThread so
@@ -78,6 +89,13 @@ class MediaWatcher : NotificationListenerService() {
                 val r = RustInterface(applicationContext)
                 r.createBucketHelper(BUCKET_ID, BUCKET_TYPE)
                 ri = r
+                if (isMediaCaptureAllowed() && isVaultReady()) {
+                    try {
+                        onActiveSessionsChanged(sessionManager?.getActiveSessions(ComponentName(this, MediaWatcher::class.java)))
+                    } catch (e: SecurityException) {
+                        Log.w(TAG, "Media session access is unavailable")
+                    }
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to initialize media bucket", e)
             }
@@ -90,11 +108,11 @@ class MediaWatcher : NotificationListenerService() {
             }
         }
         pollingRunnable = localRunnable
-        sessionManager = getSystemService(MEDIA_SESSION_SERVICE) as? MediaSessionManager
     }
 
     override fun onListenerConnected() {
         super.onListenerConnected()
+        if (!isMediaCaptureAllowed()) return
         Log.i(TAG, "MediaWatcher listener connected")
         registerActiveSessionListener()
         pollingRunnable?.let { handler?.postDelayed(it, POLL_INTERVAL_MS) }
@@ -152,6 +170,7 @@ class MediaWatcher : NotificationListenerService() {
      * Registers callbacks for new sessions and cleans up stale ones.
      */
     private fun onActiveSessionsChanged(controllers: List<MediaController>?) {
+        if (!isMediaCaptureAllowed() || !isVaultReady()) return
         if (controllers == null) return
 
         val currentTokens = controllers.map { it.sessionToken }.toSet()
@@ -163,7 +182,7 @@ class MediaWatcher : NotificationListenerService() {
             val callback = activeCallbacks.remove(token)
             if (controller != null && callback != null) {
                 controller.unregisterCallback(callback)
-                Log.d(TAG, "Unregistered callback for ${controller.packageName}")
+                Log.d(TAG, "Unregistered one media callback")
             }
         }
 
@@ -176,7 +195,7 @@ class MediaWatcher : NotificationListenerService() {
                 controller.registerCallback(callback, handler)
                 activeControllers[token] = controller
                 activeCallbacks[token] = callback
-                Log.i(TAG, "Registered callback for ${controller.packageName}")
+                Log.i(TAG, "Registered one media callback")
 
                 // Send initial state if already playing
                 val state = controller.playbackState
@@ -194,6 +213,7 @@ class MediaWatcher : NotificationListenerService() {
     private fun createMediaCallback(controller: MediaController): MediaController.Callback {
         return object : MediaController.Callback() {
             override fun onPlaybackStateChanged(state: PlaybackState?) {
+                if (!isMediaCaptureAllowed() || !isVaultReady()) return
                 val metadata = controller.metadata ?: return
                 if (state != null) {
                     handlePlaybackChange(controller, state, metadata)
@@ -201,6 +221,7 @@ class MediaWatcher : NotificationListenerService() {
             }
 
             override fun onMetadataChanged(metadata: MediaMetadata?) {
+                if (!isMediaCaptureAllowed() || !isVaultReady()) return
                 val state = controller.playbackState ?: return
                 if (metadata != null) {
                     handlePlaybackChange(controller, state, metadata)
@@ -212,7 +233,7 @@ class MediaWatcher : NotificationListenerService() {
                 activeControllers.remove(token)
                 activeCallbacks.remove(token)?.let { controller.unregisterCallback(it) }
                 controller.packageName?.let { lastEventKeys.remove(it) }
-                Log.d(TAG, "Session destroyed for ${controller.packageName}")
+                Log.d(TAG, "One media session ended")
             }
         }
     }
@@ -225,6 +246,7 @@ class MediaWatcher : NotificationListenerService() {
         state: PlaybackState,
         metadata: MediaMetadata
     ) {
+        if (!isMediaCaptureAllowed() || !isVaultReady()) return
         val packageName = controller.packageName ?: return
 
         val title = metadata.getString(MediaMetadata.METADATA_KEY_TITLE) ?: ""
@@ -249,8 +271,8 @@ class MediaWatcher : NotificationListenerService() {
             pm.getApplicationLabel(
                 pm.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
             ).toString()
-        } catch (e: PackageManager.NameNotFoundException) {
-            Log.e(TAG, "Application info not found for package: $packageName", e)
+        } catch (_: PackageManager.NameNotFoundException) {
+            Log.w(TAG, "Media application label unavailable")
             packageName
         }
 
@@ -274,11 +296,11 @@ class MediaWatcher : NotificationListenerService() {
         }
         lastEventKeys[packageName] = eventKey
 
-        Log.i(TAG, "Media event: $playbackState — $artist - $title ($appName)")
         ri?.heartbeatHelper(BUCKET_ID, Instant.now(), 0.0, data, PULSETIME)
     }
 
     private fun pollActiveSessions() {
+        if (!isMediaCaptureAllowed() || !isVaultReady()) return
         for (controller in activeControllers.values) {
             val state = controller.playbackState
             val metadata = controller.metadata
@@ -303,4 +325,19 @@ class MediaWatcher : NotificationListenerService() {
         activeCallbacks.clear()
         lastEventKeys.clear()
     }
+
+    private fun isMediaCaptureAllowed(): Boolean {
+        val preferences = AWPreferences(applicationContext)
+        return captureSources(
+            vaultReady = isVaultReady(),
+            recordingEnabled = preferences.isCaptureEnabled(),
+            usageAccessGranted = false,
+            browserOptIn = false,
+            accessibilityGranted = false,
+            mediaOptIn = preferences.isMediaCaptureEnabled(),
+            notificationAccessGranted = isNotificationAccessGranted(applicationContext),
+        ).media
+    }
+
+    private fun isVaultReady(): Boolean = ri?.needsVaultRecovery == false
 }

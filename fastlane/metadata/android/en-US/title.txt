@@ -1,1 +1,1 @@
-ActivityWatch
+PeakActivity (unreleased candidate)

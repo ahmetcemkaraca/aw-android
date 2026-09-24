@@ -26,13 +26,9 @@
                         android:icon="@drawable/ic_menu_manage"
                         android:title="@string/dashboard_settings"/>
                 <item
-                        android:id="@+id/nav_auth_settings"
+                        android:id="@+id/nav_capture_settings"
                         android:icon="@drawable/ic_menu_manage"
-                        android:title="@string/api_authentication"/>
-                <item
-                        android:id="@+id/nav_share"
-                        android:icon="@drawable/ic_menu_share"
-                        android:title="@string/open_in_browser"/>
+                        android:title="Recording and source permissions"/>
                 <item
                         android:id="@+id/nav_send"
                         android:icon="@drawable/ic_menu_send"

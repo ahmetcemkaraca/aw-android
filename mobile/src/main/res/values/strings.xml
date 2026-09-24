@@ -1,36 +1,41 @@
 <resources>
-    <string name="app_name">ActivityWatch</string>
+    <string name="app_name">PeakActivity</string>
+    <string name="vault_recovery_title">Local vault unavailable</string>
+    <string name="vault_recovery_required">PeakActivity could not unlock the local vault. It did not create a replacement key or open the database. Restore the original app data and Android Keystore entry before using this device again.</string>
+    <string name="vault_migration_title">Encrypt existing local data?</string>
+    <string name="vault_migration_prompt">Preview: %1$d buckets and %2$d activity events. After you approve, PeakActivity creates and verifies an encrypted copy before replacing the existing database.</string>
+    <string name="vault_migration_failed">The migration did not finish. Do not clear app data; the wrapped vault key was preserved. Close other PeakActivity processes and retry.</string>
+    <string name="service_starting">Starting the local reports service</string>
     <string name="navigation_drawer_open">Open navigation drawer</string>
     <string name="navigation_drawer_close">Close navigation drawer</string>
-    <string name="nav_header_title">ActivityWatch for Android</string>
+    <string name="nav_header_title">PeakActivity for Android</string>
     <string name="nav_header_subtitle">v0.1.0</string>
     <string name="nav_header_desc">Navigation header</string>
-    <string name="action_settings">Settings</string>
     <string name="dashboard_settings">Dashboard Settings</string>
-    <string name="api_authentication">API Authentication</string>
-    <string name="open_in_browser">Open in browser</string>
     <string name="title_activity_buckets">BucketsActivity</string>
-    <string name="welcome_title_text">Welcome, early user!</string>
-    <string name="welcome_text">
-        "Thanks for trying out ActivityWatch for Android!"
-        "It\'s not quite as matured as ActivityWatch on other platforms, but it\'s a great step in the right direction and we think it's ready enough to put out there!"
-
-        "\n\n<b>To get started</b>, open the drawer menu in the top left and click on "Activity".
-
-        "\n\n<b>The next step for us</b> is to get cross-device synchronization in place, but it might take a while since we really want to get it right."
-
-        "\n<b>If you\'re new to ActivityWatch</b>, you should also check out the <a href='https://activitywatch.net/'>desktop version of ActivityWatch</a>."
-    </string>
+    <string name="welcome_title_text">Welcome to PeakActivity</string>
+    <string name="welcome_text">PeakActivity helps you review app usage and local reports. Recording starts only after you choose it. Usage access can be denied; manual entry and saved reports remain available.</string>
     <string name="button_log_text">Click me to log data!</string>
-    <string name="accessibility_service_description">Allows ActivityWatch to read the URL and title from your browser.</string>
+    <string name="accessibility_service_description">Reads the current URL and page title from supported browsers only when browser capture is enabled.</string>
 
     <!-- Prominent disclosure required by the Google Play Accessibility API policy:
          must be shown and affirmatively accepted BEFORE directing the user to
          enable the accessibility service. -->
     <string name="accessibility_disclosure_title">Web browsing tracking</string>
-    <string name="accessibility_disclosure_message">To track your web browsing activity, ActivityWatch uses Android\'s Accessibility API to read the URL and page title from your browser while you browse.\n\nThis data is processed and stored only on your device. It is never sent to the ActivityWatch developers or any third party.\n\nIf you agree, enable ActivityWatch under Accessibility settings on the next screen. This is optional — the rest of the app works without it.</string>
+    <string name="accessibility_disclosure_message">Browser capture uses Android Accessibility to read the current URL and page title in supported browsers. PeakActivity stores these fields in its encrypted local activity database. This source is optional and has its own off switch. Network sync is unavailable in this mobile build.</string>
     <string name="accessibility_disclosure_agree">Agree</string>
     <string name="accessibility_disclosure_decline">No thanks</string>
+    <string name="usage_access_disclosure_title">App usage access</string>
+    <string name="usage_access_disclosure_message">When Recording is on, PeakActivity reads app/package names and active/inactive times from UsageStats to build local reports. It does not read app screen text. This source is optional; without access, manual entries and saved reports remain available.</string>
+    <string name="media_access_disclosure_title">Media playback access</string>
+    <string name="media_access_disclosure_message">Media capture reads app name, track title, artist, album and playback state from active media sessions. Posted notification text is ignored. This source is optional, stored with encrypted local activity data and can be turned off separately. Network sync is unavailable in this mobile build.</string>
+    <string name="notification_permission_title">Persistent notification</string>
+    <string name="notification_permission_message">Android uses a notification to show that PeakActivity’s local report service is running. This permission controls notification visibility; denying it does not enable or disable activity capture.</string>
+    <string name="recording_switch">Record app usage locally</string>
+    <string name="recording_running">Recording app usage. Browser and media sources stay off unless you enable them separately.</string>
+    <string name="recording_paused">Recording is paused. Manual entries and local reports remain available.</string>
+    <string name="recording_permission_required">Usage access is off. Recording is paused; open system settings to grant access or continue in manual mode.</string>
+    <string name="usage_access_missing_manual_mode">App usage access is off. Manual entries and local reports remain available. Tap to review system settings.</string>
 
     <!-- This is overridden by gradle config
     <string name="versionName">unknown version</string>-->
@@ -42,5 +47,4 @@
     <string name="widget_category_time_description">Shows today\'s screen time and top categories</string>
 
     <!-- Auth strings -->
-    <string name="no_browser_found">No browser app available to open this URL</string>
 </resources>

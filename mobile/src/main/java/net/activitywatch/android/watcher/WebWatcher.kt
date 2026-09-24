@@ -4,6 +4,8 @@ import android.accessibilityservice.AccessibilityService
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import net.activitywatch.android.captureSources
+import net.activitywatch.android.AWPreferences
 import net.activitywatch.android.RustInterface
 import org.json.JSONObject
 
@@ -19,6 +21,11 @@ private fun extractTextByViewId(event: AccessibilityEvent, viewId: String): Stri
     }
     return null
 }
+
+private val privateBrowsingIndicator = Regex("(?i)\\b(incognito|private browsing|private tab)\\b")
+
+internal fun isPrivateBrowsingIndicator(text: String?): Boolean =
+    text?.let(privateBrowsingIndicator::containsMatchIn) == true
 
 class WebWatcher : AccessibilityService() {
 
@@ -39,9 +46,8 @@ class WebWatcher : AccessibilityService() {
 
     private val TAG = "WebWatcher"
     private val bucket_id = "aw-watcher-android-web"
-    private val lastDiagnosticDump = mutableMapOf<String, Long>()
 
-    private var ri : RustInterface? = null
+    @Volatile private var ri : RustInterface? = null
     private var lastWindowId: Int? = null
     private val sessionTracker = BrowserSessionTracker()
 
@@ -73,12 +79,32 @@ class WebWatcher : AccessibilityService() {
         } catch (ex: Throwable) {
             // Catch Throwable (not just Exception) because System.loadLibrary() throws
             // UnsatisfiedLinkError (an Error subclass) when the native library is missing.
-            Log.e(TAG, "Failed to initialize RustInterface: ${ex.message}")
+                Log.e(TAG, "Failed to initialize RustInterface (${ex.javaClass.simpleName})")
         }
     }
 
     // TODO: This method is called very often, which might affect performance. Future optimizations needed.
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
+        val preferences = AWPreferences(applicationContext)
+        val browserCaptureAllowed = captureSources(
+            vaultReady = ri?.needsVaultRecovery == false,
+            recordingEnabled = preferences.isCaptureEnabled(),
+            usageAccessGranted = false,
+            browserOptIn = preferences.isBrowserCaptureEnabled(),
+            accessibilityGranted = UsageStatsWatcher.isAccessibilityAllowed(applicationContext),
+            mediaOptIn = false,
+            notificationAccessGranted = false,
+        ).browser
+        if (!browserCaptureAllowed) {
+            sessionTracker.discardCurrentSession()
+            return
+        }
+        if (isPrivateBrowsingIndicator(event.contentDescription?.toString())
+            || event.text.any { isPrivateBrowsingIndicator(it?.toString()) }) {
+            sessionTracker.discardCurrentSession()
+            lastWindowId = event.windowId
+            return
+        }
         if (shouldIgnoreEvent(event)) {
             return
         }
@@ -93,7 +119,7 @@ class WebWatcher : AccessibilityService() {
             // for some browsers like Firefox event.packageName can be null (no extractor matched)
             // but we are still on the same window
             if (windowChanged) {
-                Log.i(TAG, "Window changed away from a tracked browser (new package: $packageName); ending session")
+                Log.i(TAG, "Window changed away from a supported browser; ending the local session")
                 handleUrl(null, newBrowser = null)
             }
 
@@ -105,22 +131,25 @@ class WebWatcher : AccessibilityService() {
                 try {
                     val browser = packageName!!
                     val newUrl = extractUrl(browser, event)
-
-                    if (newUrl == null) {
-                        maybeDumpTree(browser)
+                    val webView = findWebView(source)
+                    val title = webView?.text?.toString()
+                    if (webView != null && webView !== source) webView.recycle()
+                    if (isPrivateBrowsingIndicator(title)) {
+                        sessionTracker.discardCurrentSession()
                     } else {
-                        handleUrl(newUrl, newBrowser = browser)
-                    }
-                    findWebView(source)?.let { webView ->
-                        handleWindowTitle(webView.text.toString())
-                        if (webView !== source) webView.recycle()
+                        if (newUrl == null) {
+                            Log.d(TAG, "No supported URL was available from this browser event")
+                        } else {
+                            handleUrl(newUrl, newBrowser = browser)
+                        }
+                        title?.let(::handleWindowTitle)
                     }
                 } finally {
                     source.recycle()
                 }
             }
         } catch(ex : Exception) {
-            Log.e(TAG, ex.message ?: ex.toString())
+            Log.e(TAG, "Accessibility event processing failed (${ex.javaClass.simpleName})")
         }
     }
 
@@ -145,51 +174,25 @@ class WebWatcher : AccessibilityService() {
     private fun findWebView(info: AccessibilityNodeInfo): AccessibilityNodeInfo? =
         findNode(info) { it.className == "android.webkit.WebView" && it.text != null }
 
-    // Dumps the accessibility tree to logcat at debug level, rate-limited to once per minute
-    // per browser. Helps diagnose URL extraction failures when adding support for new browsers
-    // or browser versions that have changed their view hierarchy. Enable with:
-    //   adb shell setprop log.tag.WebWatcher DEBUG
-    private fun maybeDumpTree(packageName: String) {
-        if (!Log.isLoggable(TAG, Log.DEBUG)) return
-        val now = System.currentTimeMillis()
-        if (now - (lastDiagnosticDump[packageName] ?: 0L) < 60_000L) return
-        lastDiagnosticDump[packageName] = now
-        val root = rootInActiveWindow ?: return
-        Log.d(TAG, "URL extraction failed for $packageName — accessibility tree:")
-        try {
-            forEachNode(root) { node, depth ->
-                val id = node.viewIdResourceName ?: ""
-                val cd = node.contentDescription?.toString()?.take(120) ?: ""
-                val text = node.text?.toString()?.take(120) ?: ""
-                if (id.isNotEmpty() || cd.isNotEmpty() || text.isNotEmpty()) {
-                    Log.d(TAG, "${"  ".repeat(depth)}class=${node.className} id=$id cd=\"$cd\" text=\"$text\"")
-                }
-            }
-        } finally {
-            root.recycle()
-        }
-    }
-
     private fun handleUrl(newUrl : String?, newBrowser: String?) {
-        newUrl?.let { Log.i(TAG, "Url: $it, browser: $newBrowser") }
         sessionTracker.handleUrl(newUrl, newBrowser)?.let { logBrowserEvent(it) }
     }
 
     private fun handleWindowTitle(newWindowTitle: String) {
-        if (sessionTracker.handleWindowTitle(newWindowTitle)) {
-            Log.i(TAG, "Title: $newWindowTitle")
+        if (isPrivateBrowsingIndicator(newWindowTitle)) {
+            sessionTracker.discardCurrentSession()
+            return
         }
+        sessionTracker.handleWindowTitle(newWindowTitle)
     }
 
     private fun logBrowserEvent(session: CompletedBrowserSession) {
+        if (isPrivateBrowsingIndicator(session.title)) return
         val data = JSONObject()
             .put("url", session.url)
             .put("browser", session.browser)
             .put("title", session.title)
-            .put("audible", false) // TODO
-            .put("incognito", false) // TODO
 
-        Log.i(TAG, "Registered event: $data")
         ri?.heartbeatHelper(bucket_id, session.start, session.duration.seconds.toDouble(), data, 1.0)
     }
 

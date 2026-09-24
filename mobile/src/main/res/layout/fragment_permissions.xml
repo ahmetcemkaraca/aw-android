@@ -1,211 +1,128 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="16dp"
-    android:gravity="center">
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Permissions"
-        android:textSize="24sp"
-        android:layout_gravity="center"
-        android:layout_marginBottom="10dp"
-        android:fontFamily="@font/varela_round"
-        />
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="ActivityWatch requires the following permissions to work."
-        />
+    android:layout_height="match_parent">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center"
         android:orientation="vertical"
-        android:layout_marginVertical="30dp"
-        >
+        android:padding="16dp">
 
-
-    <!-- Usage Access Permission -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Usage Access"
-        android:textSize="16sp"/>
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
-
-        <ImageView
-            android:id="@+id/checkmarkUsage"
-            android:layout_width="30dp"
-            android:layout_height="30dp"
-            android:src="@drawable/ic_x"
-            android:paddingEnd="10dp"
-            />
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="We need these permissions to track your app usage."
-                android:paddingTop="8dp"/>
-        </LinearLayout>
-
-        <Button
-            android:id="@+id/btnGrantUsagePermission"
+        <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Grant" />
-    </LinearLayout>
+            android:layout_marginBottom="10dp"
+            android:fontFamily="@font/varela_round"
+            android:text="Permissions and data sources"
+            android:textSize="24sp" />
 
-    <com.google.android.material.divider.MaterialDivider
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginVertical="10dp"/>
-
-    <!-- Accessibility Permission -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Accessibility"
-        android:textSize="16sp"/>
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
-
-        <ImageView
-            android:id="@+id/checkmarkAccessibility"
-            android:layout_width="30dp"
-            android:layout_height="30dp"
-            android:src="@drawable/ic_x"
-            android:paddingEnd="10dp"/>
-
-        <LinearLayout
-            android:layout_width="0dp"
+        <TextView
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:text="Choose only the permissions needed for the sources you want to use. Manual entries and saved reports work without capture permissions." />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="(optional) Allow tracking the page title and URL in supported browsers."
-                android:paddingTop="8dp"/>
-        </LinearLayout>
-
-        <Button
-            android:id="@+id/btnGrantAccessibilityPermission"
+        <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Grant" />
-    </LinearLayout>
-
-    <com.google.android.material.divider.MaterialDivider
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginVertical="10dp"/>
-
-    <!-- Exact Alarm Permission (for Widgets) -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Exact Alarms"
-        android:textSize="16sp"/>
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
-
-        <ImageView
-            android:id="@+id/checkmarkExactAlarm"
-            android:layout_width="30dp"
-            android:layout_height="30dp"
-            android:src="@drawable/ic_x"
-            android:paddingEnd="10dp"
-            android:contentDescription=""
-            android:importantForAccessibility="no"/>
+            android:layout_marginTop="24dp"
+            android:text="App usage"
+            android:textSize="16sp" />
 
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
-
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <ImageView
+                android:id="@+id/checkmarkUsage"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:contentDescription="Usage access status"
+                android:paddingEnd="10dp"
+                android:src="@drawable/ic_x" />
             <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Optional. Reads app/package names and active times while Recording is on. Manual mode remains available without access." />
+            <Button
+                android:id="@+id/btnGrantUsagePermission"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="(optional) Allow frequent background updates for home screen widgets."
-                android:paddingTop="8dp"/>
+                android:text="Review" />
         </LinearLayout>
 
-        <Button
-            android:id="@+id/btnGrantExactAlarmPermission"
+        <com.google.android.material.divider.MaterialDivider
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginVertical="12dp" />
+
+        <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Grant" />
-    </LinearLayout>
-
-    <com.google.android.material.divider.MaterialDivider
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginVertical="10dp"/>
-
-    <!-- Notification Access Permission (for Media Watcher) -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Notification Access"
-        android:textSize="16sp"/>
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
-
-        <ImageView
-            android:id="@+id/checkmarkNotification"
-            android:layout_width="30dp"
-            android:layout_height="30dp"
-            android:src="@drawable/ic_x"
-            android:paddingEnd="10dp"
-            android:contentDescription=""
-            android:importantForAccessibility="no"/>
+            android:text="Browser URLs and page titles"
+            android:textSize="16sp" />
 
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
-
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <ImageView
+                android:id="@+id/checkmarkAccessibility"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:contentDescription="Accessibility status"
+                android:paddingEnd="10dp"
+                android:src="@drawable/ic_x" />
             <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Optional. A separate disclosure appears before Accessibility settings. This source stays off until you enable it." />
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/switchBrowserCapture"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="(optional) Allow tracking media playback (music, podcasts, videos)."
-                android:paddingTop="8dp"/>
+                android:contentDescription="Enable browser URL and title capture" />
         </LinearLayout>
 
-        <Button
-            android:id="@+id/btnGrantNotificationPermission"
+        <com.google.android.material.divider.MaterialDivider
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginVertical="12dp" />
+
+        <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Grant" />
+            android:text="Media playback"
+            android:textSize="16sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <ImageView
+                android:id="@+id/checkmarkNotification"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:contentDescription="Media access status"
+                android:paddingEnd="10dp"
+                android:src="@drawable/ic_x" />
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Optional. Reads app, track, artist, album and playback state; posted notification text is ignored." />
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/switchMediaCapture"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:contentDescription="Enable media playback capture" />
+        </LinearLayout>
+
     </LinearLayout>
-    </LinearLayout>
-</LinearLayout>
+</ScrollView>
