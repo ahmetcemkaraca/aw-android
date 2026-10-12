@@ -150,5 +150,5 @@ clean:
 	rm -rf mobile/src/main/jniLibs
 
 .PHONY: fastlane/metadata/android/en-US/images/icon.png
-fastlane/metadata/android/en-US/images/icon.png: aw-server-rust/aw-webui/media/logo/logo.png
+fastlane/metadata/android/en-US/images/icon.png: aw-server-rust/aw-webui/static/peakactivity.svg
 	magick $< -resize 75% -gravity center -background white -extent 512x512 $@
