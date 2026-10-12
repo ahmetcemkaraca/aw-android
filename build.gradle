@@ -1,6 +1,11 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
 buildscript {
+    configurations.classpath.resolutionStrategy.activateDependencyLocking()
+    dependencyLocking {
+        lockMode = LockMode.STRICT
+    }
+
     ext.kotlin_version = '1.9.0'
     ext.androidXTestVersion = '1.7.0'
     ext.espressoVersion = '3.7.0'
@@ -23,6 +28,11 @@ buildscript {
 }
 
 allprojects {
+    dependencyLocking {
+        lockAllConfigurations()
+        lockMode = LockMode.STRICT
+    }
+
     repositories {
         google()
         mavenCentral()
