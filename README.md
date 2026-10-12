@@ -51,3 +51,35 @@ x86_64. Set `-PnativeAbis=x86_64` for an emulator-only build, or
 `mobile/build/generated/jniLibs`; old `src/main/jniLibs` files are not packaged.
 The retired folder-sync library is not required. JVM unit tests do not need to
 build JNI, and run with the same unmodified Gradle configuration.
+
+Gradle project and buildscript dependencies use committed strict lockfiles.
+Normal builds require the recorded lock state and do not update it. To review
+an intentional dependency change, first resolve the project and build-tool graphs:
+
+```sh
+./gradlew dependencies :mobile:dependencies --write-locks --no-daemon --max-workers=1
+```
+
+Reports alone miss configurations created during task execution, including
+`androidApis`. Generate that state with these representative JVM tests:
+
+```sh
+./gradlew :mobile:testDebugUnitTest \
+  --tests net.activitywatch.android.VaultKeyStoreTest \
+  --tests net.activitywatch.android.workers.SyncWorkerPolicyTest \
+  --tests net.activitywatch.android.CaptureSourcesTest \
+  --write-locks --no-daemon --max-workers=1
+```
+
+These tests do not build JNI or an APK. Repeat this task without `--write-locks`,
+with `--offline --rerun`, to execute the tests again against unchanged locks.
+Other build variants may create additional configurations; generate their state
+with the actual reviewed task instead of weakening strict locking.
+
+Review and commit the generated `gradle.lockfile` and
+`buildscript-gradle.lockfile` files together with the dependency change. After
+the required metadata is cached, the same command without `--write-locks` and
+with `--offline` checks the lock state. Check that the report has no `FAILED`
+dependencies: Gradle's reporting tasks can exit successfully when resolution
+fails. Locks fix resolved module versions; they do not verify dependency bytes,
+complete the SBOM or approve a release.

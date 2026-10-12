@@ -1,11 +1,10 @@
-name: Build
+name: Android critical checks
 
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -13,39 +12,73 @@ permissions:
 env:
   NDK_VERSION: '28.2.13676358'
   CARGO_BUILD_JOBS: '2'
+  CARGO_INCREMENTAL: '0'
+  RUSTUP_TOOLCHAIN: '1.98.1'
+  EXPECTED_CORE_REV: 78502ccd11f30dc0f19b7100ef66f71bdc57718f
+  EXPECTED_WEBUI_REV: 9ab60a2cc406102749fbe53cb760d4f817fe7711
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
+  android:
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
+          persist-credentials: false
           submodules: recursive
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify reviewed dependency sources
+        run: |
+          test "$(git rev-parse HEAD:aw-server-rust)" = "$EXPECTED_CORE_REV"
+          test "$(git -C aw-server-rust rev-parse HEAD)" = "$EXPECTED_CORE_REV"
+          test "$(git -C aw-server-rust rev-parse HEAD:aw-webui)" = "$EXPECTED_WEBUI_REV"
+          test "$(git -C aw-server-rust/aw-webui rev-parse HEAD)" = "$EXPECTED_WEBUI_REV"
+          git submodule status --recursive
       - name: Check metadata source prerequisite
         run: python3 -m unittest discover -s scripts/tests -p 'test_metadata.py' -v
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
         with:
           distribution: temurin
           java-version: '21'
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: '22'
-      - uses: android-actions/setup-android@v3
+          node-version: '24.20.0'
+          package-manager-cache: false
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3.2.2
+        with:
+          cmdline-tools-version: '12266719'
+          log-accepted-android-sdk-licenses: false
       - name: Install native toolchains
         run: |
           sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;${NDK_VERSION}"
-          rustup toolchain install stable --profile minimal
-          rustup default stable
-          rustup target add aarch64-linux-android x86_64-linux-android
+          rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal --no-self-update
+          rustup target add --toolchain "$RUSTUP_TOOLCHAIN" aarch64-linux-android
       - name: Build embedded WebUI
         working-directory: aw-server-rust/aw-webui
         run: |
-          npm ci
+          npm ci --no-audit --no-fund
           VUE_APP_ON_ANDROID=true COMMIT_HASH="\"$(git rev-parse --short HEAD)\"" make build-vite
+          test -s dist/index.html
+          test -s dist/peakactivity.svg
+          test -s dist/LICENSE.txt
       - name: Check native library validator
         run: python3 -m unittest discover -s scripts/tests -p 'test_jnilibs.py' -v
-      - name: Build encrypted JNI, run JVM tests and assemble local debug APK
-        run: ./gradlew :mobile:testDebugUnitTest :mobile:assembleDebug -PnativeAbis=arm64-v8a,x86_64 --no-daemon --max-workers=2
+      - name: Check vault, sync policy and capture source contracts
+        run: |
+          ./gradlew :mobile:testDebugUnitTest \
+            --tests net.activitywatch.android.VaultKeyStoreTest \
+            --tests net.activitywatch.android.workers.SyncWorkerPolicyTest \
+            --tests net.activitywatch.android.CaptureSourcesTest \
+            -PnativeAbis=arm64-v8a --no-daemon --max-workers=2
+      - name: Build encrypted ARM64 JNI and assemble debug APK
+        run: ./gradlew :mobile:assembleDebug -PnativeAbis=arm64-v8a --no-daemon --max-workers=2
       - name: Verify packaged native libraries
-        run: python3 scripts/check-jnilibs.py --directory mobile/build/generated/jniLibs arm64-v8a x86_64
+        run: |
+          python3 scripts/check-jnilibs.py --directory mobile/build/generated/jniLibs arm64-v8a
+          unzip -q mobile/build/outputs/apk/debug/mobile-debug.apk 'lib/arm64-v8a/*.so' -d "$RUNNER_TEMP/packaged-jni"
+          python3 scripts/check-jnilibs.py --directory "$RUNNER_TEMP/packaged-jni/lib" arm64-v8a
+          "${ANDROID_HOME}/build-tools/36.0.0/zipalign" -c -P 16 4 mobile/build/outputs/apk/debug/mobile-debug.apk
+      - name: Check dependency locks are unchanged
+        run: |
+          git -C aw-server-rust diff --exit-code -- Cargo.lock
+          git -C aw-server-rust/aw-webui diff --exit-code -- package-lock.json
