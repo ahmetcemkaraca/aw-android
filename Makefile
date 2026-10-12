@@ -127,70 +127,11 @@ dist/$(RELEASE_TYPE)/%: $(APKDIR)/$(RELEASE_TYPE)/%
 	mkdir -p dist
 	cp $< $@
 
-# aw-server-rust stuff
-
-RS_SRCDIR := aw-server-rust
-RS_OUTDIR := $(JNILIBS)
-RS_SOURCES := $(shell find $(RS_SRCDIR)/aw-* -type f -name '*.rs')
-
-JNILIBS := mobile/src/main/jniLibs
-JNI_arm8 := $(JNILIBS)/arm64-v8a
-JNI_arm7 := $(JNILIBS)/armeabi-v7a
-JNI_x86 := $(JNILIBS)/x86
-JNI_x64 := $(JNILIBS)/x86_64
-
-TARGETDIR := aw-server-rust/target
-TARGETDIR_arm7 := $(TARGETDIR)/armv7-linux-androideabi
-TARGETDIR_arm8 := $(TARGETDIR)/aarch64-linux-android
-TARGETDIR_x64 := $(TARGETDIR)/x86_64-linux-android
-TARGETDIR_x86 := $(TARGETDIR)/i686-linux-android
-
-# Build webui specifically for Android (disabled update check, different default views, etc)
+# All native entry points use the Gradle packaging build, including SQLCipher/E2EE.
 export ON_ANDROID := -- --android
-
-aw-server-rust: $(JNILIBS)
-
-.PHONY: $(JNILIBS)
-$(JNILIBS): $(JNI_arm7)/libaw_server.so $(JNI_arm8)/libaw_server.so $(JNI_x86)/libaw_server.so $(JNI_x64)/libaw_server.so
-	@ls -lL $@/*/*  # Check that symlinks are valid
-
-# There must be a better way to do this without repeating almost the same rule over and over?
-# NOTE: These must be hard links for CI caching to work
-$(JNI_arm7)/libaw_server.so: $(TARGETDIR_arm7)/$(RELEASE_TYPE)/libaw_server.so
-	mkdir -p $$(dirname $@)
-	# if target is empty, then create symlink
-	if [ -z "$(TARGET)" ] || [ "$(TARGET)" == "arm" ]; then ln -fnv $$(pwd)/$^ $@; fi
-$(JNI_arm8)/libaw_server.so: $(TARGETDIR_arm8)/$(RELEASE_TYPE)/libaw_server.so
-	mkdir -p $$(dirname $@)
-	if [ -z "$(TARGET)" ] || [ "$(TARGET)" == "arm64" ]; then ln -fnv $$(pwd)/$^ $@; fi
-$(JNI_x86)/libaw_server.so: $(TARGETDIR_x86)/$(RELEASE_TYPE)/libaw_server.so
-	mkdir -p $$(dirname $@)
-	if [ -z "$(TARGET)" ] || [ "$(TARGET)" == "x86" ]; then ln -fnv $$(pwd)/$^ $@; fi
-$(JNI_x64)/libaw_server.so: $(TARGETDIR_x64)/$(RELEASE_TYPE)/libaw_server.so
-	mkdir -p $$(dirname $@)
-	if [ -z "$(TARGET)" ] || [ "$(TARGET)" == "x86_64" ]; then ln -fnv $$(pwd)/$^ $@; fi
-
-RUSTFLAGS_ANDROID="-C debuginfo=2 -Awarnings"
-# Explanation of RUSTFLAGS:
-#  `-Awarnings` allows all warnings, for cleaner output (warnings should be detected in aw-server-rust CI anyway)
-#  `-C debuginfo=2` is to keep debug symbols, even in release builds (later stripped by gradle on production builds, non-stripped versions needed for stack resymbolizing with ndk-stack)
-#  `-g` is to keep debug symbols in the build, bloats the binary from 7M -> 60MB. Currently using profile.release.debug in Cargo.toml however as -g didn't work on the first try
-
-
-# This target runs multiple times because it's matched multiple times, not sure how to fix
-$(RS_SRCDIR)/target/%/$(RELEASE_TYPE)/libaw_server.so: $(RS_SOURCES) $(WEBUI_DISTDIR)
-	@echo $@
-	@echo "Release type: $(RELEASE_TYPE)"
-	@# if we indicate in CI via USE_PREBUILT that we've
-	@# fetched prebuilt libaw_server.so from aw-server-rust repo,
-	@# then don't rebuild it
-	@# also check libraries exist, if not, error
-	@if [ "$$USE_PREBUILT" == "true" ] && [ -f $@ ]; then \
-		echo "Using prebuilt libaw_server.so"; \
-	else \
-		echo "Building libaw_server.so from aw-server-rust repo"; \
-		env RUSTFLAGS=$(RUSTFLAGS_ANDROID) make -C aw-server-rust android; \
-	fi
+.PHONY: aw-server-rust
+aw-server-rust: $(WEBUI_DISTDIR)
+	./gradlew :mobile:buildRust $(GRADLE_ARGS)
 
 # aw-webui
 .PHONY: $(WEBUI_DISTDIR)
@@ -209,5 +150,5 @@ clean:
 	rm -rf mobile/src/main/jniLibs
 
 .PHONY: fastlane/metadata/android/en-US/images/icon.png
-fastlane/metadata/android/en-US/images/icon.png: aw-server-rust/aw-webui/media/logo/logo.png
+fastlane/metadata/android/en-US/images/icon.png: aw-server-rust/aw-webui/static/peakactivity.svg
 	magick $< -resize 75% -gravity center -background white -extent 512x512 $@
