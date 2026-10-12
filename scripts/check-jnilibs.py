@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 import glob
+import argparse
 import os
 import struct
 import sys
 
 
 ABIS = ["arm64-v8a", "armeabi-v7a", "x86", "x86_64"]
-# Libs the Makefile always packages; MISSING is an error for these. Any other
+ELF_ABIS = {"arm64-v8a": (2, 183), "armeabi-v7a": (1, 40), "x86": (1, 3), "x86_64": (2, 62)}
+# Libs the native Gradle task packages; MISSING is an error for these. Any other
 # *.so found in an ABI dir is validated too (ELF sanity + alignment).
-REQUIRED_LIBS = ["libaw_server.so", "libaw_sync.so"]
+REQUIRED_LIBS = ["libaw_server.so"]
 
 # Google Play requires 16 KB page-size support for 64-bit native libs
 # (enforced for updates since Nov 2025). NDK r28+ links with 16 KB
@@ -77,6 +79,10 @@ def check_lib(abi, path):
             return False
 
         e_class = header[4]  # 1=32-bit, 2=64-bit
+        elf_type, machine = struct.unpack('<HH', header[16:20])
+        if header[5] != 1 or elf_type != 3 or (e_class, machine) != ELF_ABIS[abi]:
+            print(f"WRONG_ABI {path}: expected a little-endian {abi} shared library", file=sys.stderr)
+            return False
         if e_class == 1:
             e_shoff = struct.unpack("<I", header[32:36])[0]
         elif e_class == 2:
@@ -112,8 +118,8 @@ def check_lib(abi, path):
     return True
 
 
-def check_abi(abi):
-    abi_dir = os.path.join("mobile", "src", "main", "jniLibs", abi)
+def check_abi(abi, directory):
+    abi_dir = os.path.join(directory, abi)
     ok = True
 
     seen = set()
@@ -137,9 +143,15 @@ def check_abi(abi):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--directory', default='mobile/src/main/jniLibs')
+    parser.add_argument('abis', nargs='*')
+    args = parser.parse_args()
+    if any(abi not in ABIS for abi in args.abis):
+        parser.error('unsupported ABI')
     ok = True
-    for abi in ABIS:
-        ok = check_abi(abi) and ok
+    for abi in args.abis or ABIS:
+        ok = check_abi(abi, args.directory) and ok
     return 0 if ok else 1
 
 
