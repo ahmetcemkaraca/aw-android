@@ -304,6 +304,152 @@ class MobilePrivacyTest(unittest.TestCase):
         rust_vector = ROOT.parent / 'aw-server-rust/aw-sync-e2ee/test-vectors/sync-recovery-v1.json'
         self.assertEqual(vector.read_bytes(), rust_vector.read_bytes())
 
+    def test_ios_foreground_network_and_restore_use_only_shared_native_commands(self):
+        project = ROOT / 'ios-companion'
+        client = (project / 'PeakActivityCompanion/NativeSyncClient.swift').read_text()
+        sync = (project / 'PeakActivityCompanion/CompanionSyncStore.swift').read_text()
+        view = (project / 'PeakActivityCompanion/CompanionSyncView.swift').read_text()
+        self.assertIn('peakactivity_companion_open_with_security', client)
+        self.assertIn('Bundle.main.url(forResource: "release-trust"', client)
+        self.assertIn('nonisolated func pause()', client)
+        self.assertIn('nonisolated func runSyncOnce()', client)
+        self.assertIn('peakactivity_companion_pause_sync', client)
+        for command in ('sync_network_status', 'sync_signed_destinations', 'preview_sync_policy',
+                        'accept_sync_policy', 'set_sync_enabled', 'set_egress_kill_switch',
+                        'create_current_sync_snapshot', 'export_sync_snapshot',
+                        'preview_sync_recovery_restore', 'restore_sync_recovery_kit'):
+            self.assertIn(command, sync)
+        self.assertIn('expected_diff', sync)
+        self.assertIn('userAccepted', sync)
+        self.assertIn('await client.pause()', sync)
+        self.assertIn('await client.runSyncOnce()', sync)
+        self.assertIn('restoreRevision == inputRevision', sync)
+        self.assertIn('acceptsFileCallback(session, operation: fileOperation)', view)
+        self.assertIn('[fileSession, fileOperation, importKind]', view)
+        self.assertIn('if let opening { await opening.value }', (project / 'PeakActivityCompanion/CompanionStore.swift').read_text())
+        self.assertIn('guard await closeSyncClient(closingSyncClient)', (project / 'PeakActivityCompanion/CompanionStore.swift').read_text())
+        self.assertIn('.fileImporter(', view)
+        self.assertIn('Review encrypted restore', view)
+        self.assertIn('Stop network sync', view)
+        for source in (client, sync, view):
+            self.assertNotIn('URLSession', source)
+            self.assertNotIn('URLRequest', source)
+
+    def test_entitlement_source_is_separate_bounded_and_release_owned(self):
+        import json
+
+        android = (ROOT / 'mobile/src/main/java/net/activitywatch/android/EntitlementStore.kt').read_text()
+        bridge = (ROOT / 'mobile/src/main/java/net/activitywatch/android/RustInterface.kt').read_text()
+        native_ui = (ROOT / 'mobile/src/main/java/net/activitywatch/android/MainActivity.kt').read_text()
+        ios_root = ROOT / 'ios-companion/PeakActivityCompanion'
+        ios = (ios_root / 'EntitlementStore.swift').read_text()
+        client = (ios_root / 'NativeSyncClient.swift').read_text()
+        view = (ios_root / 'CompanionSyncView.swift').read_text()
+        store = (ios_root / 'CompanionSyncStore.swift').read_text()
+        android_trust = json.loads((ROOT / 'mobile/src/main/assets/entitlement-trust.json').read_text())
+        ios_trust = json.loads((ios_root / 'entitlement-trust.json').read_text())
+        self.assertEqual(android_trust, ios_trust)
+        self.assertEqual(ios_trust, {'schema_version': 1, 'keys': [], 'minimum_revocation_sequence': 0})
+        self.assertIn('noBackupFilesDir', android)
+        self.assertIn('!Files.isSymbolicLink(proofFile.parentFile!!.toPath())', android)
+        self.assertNotIn('canonicalFile == proofFile.parentFile', android)
+        self.assertIn('peakactivity-entitlement-wrapper-v1', android)
+        self.assertIn('AndroidKeyStore', android)
+        self.assertIn('4 * 1024 * 1024', android)
+        self.assertIn('app.peakactivity.entitlements.v1', ios)
+        self.assertIn('kSecAttrAccessibleWhenUnlockedThisDeviceOnly', ios)
+        self.assertIn('Unmanaged.passRetained(EntitlementStore())', ios)
+        self.assertIn('Unmanaged<EntitlementStore>.fromOpaque(context).release()', ios)
+        self.assertIn('EntitlementStore.retainedCallbacks()', client)
+        self.assertIn('Bundle.main.url(forResource: "entitlement-trust"', client)
+        self.assertIn('entitlementResource.flatMap { try? Data(contentsOf: $0) } ?? Data()', client)
+        self.assertLess(bridge.index('installEntitlementSource(entitlementStore)'), bridge.index('initializeVault()'))
+        self.assertIn('"import_entitlement"', native_ui)
+        self.assertIn('plan.optBoolean("sync_allowed", false)', native_ui)
+        self.assertIn('let sync_allowed: Bool', client)
+        self.assertIn('store.entitlement?.sync_allowed == true', view)
+        self.assertEqual(view.count('store.entitlement?.sync_allowed != true'), 2)
+        self.assertIn('ActivityResultContracts.OpenDocument()', native_ui)
+        self.assertIn('readEntitlementDocument', native_ui)
+        self.assertIn('"proof": document', store)
+        entitlement_refresh = store.split('func refreshEntitlement()', 1)[1].split('func importEntitlement(', 1)[0]
+        entitlement_import = store.split('func importEntitlement(', 1)[1].split('func previewPolicy(', 1)[0]
+        self.assertIn('entitlementRequest &+= 1', entitlement_refresh)
+        self.assertEqual(entitlement_refresh.count('entitlementRequest == request'), 2)
+        self.assertIn('entitlementRequest &+= 1', entitlement_import)
+        self.assertIn('} catch {\n                if generation == current { await refreshEntitlement() }', entitlement_import)
+        self.assertIn('case .entitlement: await store.importEntitlement(data)', view)
+        for source in (ios, android):
+            self.assertIn('entitlement-revocations-v1', source)
+            self.assertNotIn('account_id', source)
+            self.assertNotIn('sqlite', source.lower())
+            self.assertNotIn('Log.', source)
+        self.assertNotIn('set_entitlement_trust', native_ui + view + store)
+        self.assertNotIn('try source.save', store)
+        self.assertIn('EntitlementStore.swift in Sources', (ROOT / 'ios-companion/PeakActivityCompanion.xcodeproj/project.pbxproj').read_text())
+
+    def test_ios_native_binding_is_linked_and_remains_local_only(self):
+        project = ROOT / 'ios-companion'
+        client = (project / 'PeakActivityCompanion/NativeSyncClient.swift').read_text()
+        app = (project / 'PeakActivityCompanion/PeakActivityCompanionApp.swift').read_text()
+        store = (project / 'PeakActivityCompanion/CompanionStore.swift').read_text()
+        vault = (project / 'PeakActivityCompanion/EncryptedCompanionVault.swift').read_text()
+        xcode = (project / 'PeakActivityCompanion.xcodeproj/project.pbxproj').read_text()
+        build = (project / 'scripts/build-rust.sh').read_text()
+        self.assertIn('actor NativeSyncClient', client)
+        self.assertIn('Task.detached(', client)
+        self.assertIn('peakactivity_companion_response_free(pointer)', client)
+        self.assertIn('bytes.resetBytes', client)
+        self.assertIn('response["result"]', client)
+        self.assertIn('.fragmentsAllowed', client)
+        self.assertIn('store.suspendLocalSync()', app)
+        self.assertIn('client.invoke("sync_enabled", as: Bool.self)', store)
+        self.assertNotIn('set_sync_enabled', store)
+        self.assertIn('"sync.db-wal", "sync.db-shm", "sync.db-journal"', vault)
+        self.assertIn('NativeSyncClient.swift in Sources', xcode)
+        self.assertIn('SWIFT_OBJC_BRIDGING_HEADER = PeakActivityCompanion/PeakActivityRust.h', xcode)
+        self.assertIn('"-law_server"', xcode)
+        self.assertIn('build-rust.sh', xcode)
+        self.assertIn('--locked --release', build)
+        self.assertIn('"${ARCHS}"', build)
+        self.assertIn('companion,encryption-vendored', build)
+        for source in (client, store, build):
+            self.assertNotIn('URLSession', source)
+            self.assertNotIn('URLRequest', source)
+        self.assertNotIn('FamilyActivitySelection', client)
+        self.assertNotIn('state.entries', client)
+
+    def test_ios_manual_projection_and_local_controls_have_real_callers(self):
+        project = ROOT / 'ios-companion'
+        store = (project / 'PeakActivityCompanion/CompanionStore.swift').read_text()
+        sync = (project / 'PeakActivityCompanion/CompanionSyncStore.swift').read_text()
+        view = (project / 'PeakActivityCompanion/CompanionSyncView.swift').read_text()
+        model = (project / 'PeakActivityCompanion/ManualReport.swift').read_text()
+        xcode = (project / 'PeakActivityCompanion.xcodeproj/project.pbxproj').read_text()
+        self.assertLess(store.index('try vault.save(next)'), store.index('sync.setLocalEntries(next.entries)'))
+        self.assertIn('await sync.attach(client)', store)
+        self.assertIn('sync.detach()', store)
+        self.assertIn('reconcile_manual_entries', sync)
+        self.assertIn('generation == current, available', sync)
+        self.assertIn('synced_manual_report', sync)
+        self.assertIn('exclude_entry_ids', sync)
+        dto = model[model.index('struct ManualSyncEntry:'):]
+        self.assertNotIn('let note', dto)
+        self.assertNotIn('familyActivitySelection', dto)
+        self.assertIn('entry.id.uuidString.lowercased()', dto)
+        self.assertIn('.withFractionalSeconds', dto)
+        for command in ('create_local_sync_identity', 'create_sync_pairing', 'respond_sync_pairing',
+                        'complete_sync_pairing', 'prepare_sync_pairing', 'confirm_sync_pairing',
+                        'create_sync_key_transfer', 'accept_sync_key_transfer', 'create_sync_recovery_kit',
+                        'confirm_sync_recovery_saved', 'revoke_sync_device'):
+            self.assertIn(command, sync)
+        self.assertIn('confirmSharing = true', view)
+        self.assertIn('confirmCode = true', view)
+        self.assertIn('.fileExporter(', view)
+        self.assertIn('.privacySensitive()', view)
+        self.assertIn('CompanionSyncStore.swift in Sources', xcode)
+        self.assertIn('CompanionSyncView.swift in Sources', xcode)
+
     def test_android_sync_controls_use_shared_encrypted_backend(self):
         rust_sync = (ROOT.parent / 'aw-server-rust/aw-server/src/sync_control.rs').read_text()
         rust_bridge = (ROOT.parent / 'aw-server-rust/aw-server/src/android/mod.rs').read_text()

@@ -30,6 +30,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.activitywatch.android.watcher.MediaWatcher
 import net.activitywatch.android.watcher.UsageStatsWatcher
+import org.json.JSONObject
 
 private const val TAG = "MainActivity"
 
@@ -44,6 +45,24 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     private lateinit var recordingStatus: TextView
     private var updatingRecordingControl = false
     private var vaultReady = false
+    private lateinit var rustInterface: RustInterface
+
+    private val importEntitlement = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null || !::rustInterface.isInitialized) return@registerForActivityResult
+        lifecycleScope.launch {
+            val response = withContext(Dispatchers.IO) {
+                try {
+                    val bytes = contentResolver.openInputStream(uri)?.use(::readEntitlementDocument)
+                        ?: throw IllegalArgumentException()
+                    try {
+                        val arguments = JSONObject().put("proof", JSONObject(String(bytes, Charsets.UTF_8)))
+                        JSONObject(rustInterface.localNativeCommand("import_entitlement", arguments.toString()))
+                    } finally { bytes.fill(0) }
+                } catch (_: Exception) { JSONObject().put("error", "The signed entitlement document could not be imported.") }
+            }
+            showEntitlementStatus(response.optString("error").takeIf { response.has("error") })
+        }
+    }
 
     private val requestNotificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -78,7 +97,8 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         val view = binding.root
         setContentView(view)
 
-        val rust = RustInterface(this)
+        rustInterface = RustInterface(this)
+        val rust = rustInterface
         vaultReady = !rust.needsVaultRecovery
         if (!vaultReady) {
             recordingSwitch = findViewById(R.id.recording_switch)
@@ -260,6 +280,10 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         // automatically handle clicks on the Home/Up button, so long
         // as you specify a parent activity in AndroidManifest.xml.
         return when (item.itemId) {
+            R.id.action_entitlement -> {
+                showEntitlementStatus()
+                true
+            }
             R.id.action_sync_settings -> {
                 val fragment = WebUIFragment.newInstance("$baseURL/#/settings/sync")
                 supportFragmentManager.beginTransaction()
@@ -268,6 +292,30 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 true
             }
             else -> super.onOptionsItemSelected(item)
+        }
+    }
+
+    private fun showEntitlementStatus(importError: String? = null) {
+        if (!::rustInterface.isInitialized) return
+        lifecycleScope.launch {
+            val message = withContext(Dispatchers.IO) {
+                val status = try { JSONObject(rustInterface.localNativeCommand("entitlement_status", "{}")) }
+                    catch (_: Exception) { JSONObject() }
+                val plan = status.optJSONObject("result")
+                val summary = if (plan == null) getString(R.string.entitlement_local_access) else {
+                    getString(R.string.entitlement_plan_access, plan.optString("plan_id"), plan.optString("access")) + "\n" +
+                        getString(if (plan.optBoolean("sync_allowed", false)) R.string.entitlement_sync_feature else R.string.entitlement_no_sync_feature)
+                }
+                listOfNotNull(importError, summary, getString(R.string.entitlement_local_features),
+                    getString(R.string.entitlement_storage_protection, rustInterface.entitlementProtection())).joinToString("\n\n")
+            }
+            if (isFinishing || isDestroyed) return@launch
+            AlertDialog.Builder(this@MainActivity)
+                .setTitle(R.string.entitlement_title)
+                .setMessage(message)
+                .setPositiveButton(R.string.entitlement_import) { _, _ -> importEntitlement.launch(arrayOf("application/json")) }
+                .setNegativeButton(android.R.string.ok, null)
+                .show()
         }
     }
 

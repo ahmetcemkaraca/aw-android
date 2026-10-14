@@ -21,6 +21,7 @@ private const val TAG = "RustInterface"
 class RustInterface(context: Context) {
 
     private val appContext: Context = context.applicationContext
+    private val entitlementStore = EntitlementStore(appContext)
     @Volatile private var vaultUnlocked = false
     val needsVaultRecovery: Boolean
         get() = !vaultUnlocked
@@ -35,6 +36,7 @@ class RustInterface(context: Context) {
         System.loadLibrary("aw_server")
 
         initialize()
+        installEntitlementSource(entitlementStore)
         setDataDir(appContext.filesDir.absolutePath)
         when (val result = VaultKeyStore.loadOrCreate(appContext, VaultKeyStore.databaseExists(appContext))) {
             is VaultKeyResult.Unlocked -> {
@@ -49,6 +51,7 @@ class RustInterface(context: Context) {
     }
 
     private external fun initialize()
+    private external fun installEntitlementSource(source: EntitlementStore): Boolean
     private external fun greeting(pattern: String): String
     private external fun startServer()
     private external fun setDataDir(path: String)
@@ -96,6 +99,8 @@ class RustInterface(context: Context) {
 
     fun localNativeCommand(command: String, arguments: String): String =
         if (vaultUnlocked) nativeLocalCommand(command, arguments) else "{\"error\":\"vault_unavailable\"}"
+
+    fun entitlementProtection(): String = entitlementStore.protection()
 
     fun isNetworkSyncEnabled(): Boolean {
         if (!vaultUnlocked) return false

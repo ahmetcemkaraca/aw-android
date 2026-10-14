@@ -13,6 +13,21 @@ access is denied. Local E2EE pairing and recovery are available in the WebView
 settings. Network sync remains off until the Android relay worker and signed Egress
 policy are configured.
 
+The native **Plan and sync access** menu imports a signed entitlement JSON document
+only after an explicit user action. Rust verifies the document against release-owned
+entitlement keys; imported documents cannot install trust keys. Billing proof uses
+its own Android Keystore key and an encrypted file excluded from backup. Global
+revocation checkpoints are append-only OS Keystore aliases, separate from SQLCipher,
+and contain no account or activity ID. This prevents rolling back the checkpoint by
+restoring older app files; whole-OS/Keystore rollback and rooted-device resistance are
+not established. The UI reports the key's actual hardware/software protection and
+unknown protection fails closed. The 4096-marker limit fails closed when exhausted.
+([Android Keystore](https://developer.android.com/privacy-and-security/keystore),
+[KeyInfo](https://developer.android.com/reference/android/security/keystore/KeyInfo)).
+Current signed revocation state and the `e2ee-sync` feature are required for network
+access. Local history, export, decrypt, deletion and pause remain available without
+a paid entitlement. No billing provider, login, checkout or account flow is added.
+
 ## Local source checks
 
 Run the dependency-free mobile privacy contract:

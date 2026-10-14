@@ -5,10 +5,18 @@
   "migration_default": "preserve_existing_recording_setting",
   "storage": {
     "activity_database": "SQLCipher after Android Keystore unlock; legacy data uses an explicit preview-and-accept migration",
+    "commercial_entitlements": "separate Android Keystore key and AEAD proof in noBackupFilesDir; append-only global revocation checkpoint aliases in OS Keystore; no activity join key",
     "os_backup": "disabled",
     "analytics_or_advertising": "none"
   },
   "sources": [
+    {
+      "id": "commercial_entitlements",
+      "opt_in": "explicit import of a signed entitlement document",
+      "fields": ["opaque_billing_account_id", "entitlement_id", "plan_id", "feature_ids", "expiry_and_grace", "signed_global_revocation_snapshot"],
+      "purpose": "verify access to paid network sync without linking billing metadata to activity",
+      "network": "none_from_import; shared Rust verifies paid access at network entry points"
+    },
     {
       "id": "android_usage_stats",
       "opt_in": "recording_switch plus Android Usage Access",
