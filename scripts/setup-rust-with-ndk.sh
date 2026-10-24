@@ -1,31 +1,12 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Based on https://mozilla.github.io/firefox-browser-architecture/experiments/2017-09-21-rust-on-android.html
-# TODO: Merge with aw-server-rust/install-ndk.sh
-
-set -e
-
-script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-project_path="$(readlink -f "$script_dir/..")"
-
-if [ -z "$ANDROID_NDK_HOME" ]; then
-    echo "ANDROID_NDK_HOME not set, exiting."
+# Gradle and build-native.sh use the NDK directly; no toolchain mutations or
+# machine-specific Cargo configuration are needed.
+: "${ANDROID_HOME:=${ANDROID_SDK_ROOT:-}}"
+: "${ANDROID_NDK_HOME:=${ANDROID_HOME:+$ANDROID_HOME/ndk/28.2.13676358}}"
+if [ ! -d "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt" ]; then
+    echo 'Install ndk;28.2.13676358 with sdkmanager and set ANDROID_HOME.' >&2
     exit 1
 fi
-
-# Runs non-Android specific setup tasks
-# - Creates some symlinks in the ANDROID_NDK_HOME toolchains to work around ring weirdness
-# - Creates the cargo config
-# - Retrieves target dependencies with rustup
-$project_path/aw-server-rust/install-ndk.sh
-
-# Create destination folders for built libraries
-mkdir -p $project_path/mobile/src/main/jniLibs/x86
-mkdir -p $project_path/mobile/src/main/jniLibs/x86_64
-mkdir -p $project_path/mobile/src/main/jniLibs/arm64
-mkdir -p $project_path/mobile/src/main/jniLibs/armeabi
-
-# Some more steps after this is done:
-#  - Build aw-server-rust using its compile-android.sh script
-#  - Copy/link the built libraries into the mobile/src/main/jniLibs folders
-#  - Build and test the app!
+rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android

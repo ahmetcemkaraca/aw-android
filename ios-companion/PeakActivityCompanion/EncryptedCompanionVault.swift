@@ -28,7 +28,7 @@ enum CompanionVaultCipher {
     }
 }
 
-struct EncryptedCompanionVault {
+struct EncryptedCompanionVault: Sendable {
     private let fileURL: URL
     private let keychainService: String
     private let keychainAccount = "local-vault-key-v1"
@@ -77,6 +77,36 @@ struct EncryptedCompanionVault {
         try protectedDirectory.setResourceValues(resourceValues)
     }
 
+    func withSyncKey<Result>(_ body: (String, Data) throws -> Result) throws -> Result {
+        let directory = fileURL.deletingLastPathComponent()
+        guard (try? directory.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) != true else {
+            throw CompanionVaultError.secureStorageUnavailable
+        }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try FileManager.default.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: directory.path)
+        var protectedDirectory = directory
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        try protectedDirectory.setResourceValues(values)
+        let key = try loadKey(createIfMissing: !hasStoredVault())
+        var bytes = key.withUnsafeBytes { Data($0) }
+        defer { bytes.resetBytes(in: 0..<bytes.count) }
+        let path = directory.resolvingSymlinksInPath().appendingPathComponent("sync.db").path
+        return try body(path, bytes)
+    }
+
+    private func hasStoredVault() throws -> Bool {
+        var exists = try vaultFileExists()
+        for name in ["sync.db", "sync.db-wal", "sync.db-shm", "sync.db-journal"] {
+            let file = fileURL.deletingLastPathComponent().appendingPathComponent(name)
+            if (try? FileManager.default.destinationOfSymbolicLink(atPath: file.path)) != nil {
+                throw CompanionVaultError.secureStorageUnavailable
+            }
+            exists = FileManager.default.fileExists(atPath: file.path) || exists
+        }
+        return exists
+    }
+
     private func vaultFileExists() throws -> Bool {
         if (try? fileURL.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) == true {
             throw CompanionVaultError.secureStorageUnavailable
@@ -108,7 +138,7 @@ struct EncryptedCompanionVault {
             return key
         }
         guard status == errSecItemNotFound else { throw CompanionVaultError.keyUnavailable }
-        guard createIfMissing else { throw CompanionVaultError.keyMissing }
+        guard createIfMissing, try !hasStoredVault() else { throw CompanionVaultError.keyMissing }
 
         var bytes = Data(count: 32)
         let randomStatus = bytes.withUnsafeMutableBytes { buffer -> OSStatus in

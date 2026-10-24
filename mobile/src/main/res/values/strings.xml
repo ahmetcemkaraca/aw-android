@@ -47,4 +47,12 @@
     <string name="widget_category_time_description">Shows today\'s screen time and top categories</string>
 
     <!-- Auth strings -->
+    <string name="entitlement_title">Plan and sync access</string>
+    <string name="entitlement_import">Import signed entitlement</string>
+    <string name="entitlement_local_access">Community local access. Paid sync access is unavailable.</string>
+    <string name="entitlement_plan_access">Plan: %1$s · %2$s</string>
+    <string name="entitlement_sync_feature">Encrypted network sync access is available. Access is verified for every request.</string>
+    <string name="entitlement_no_sync_feature">Encrypted network sync access is unavailable.</string>
+    <string name="entitlement_local_features">Local history, export, decrypt, delete and pause remain available. Billing proof is stored separately from activity.</string>
+    <string name="entitlement_storage_protection">Entitlement key protection: %1$s</string>
 </resources>

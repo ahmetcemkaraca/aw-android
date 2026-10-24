@@ -13,6 +13,12 @@ final class CompanionStore: ObservableObject {
 
     private let vault: EncryptedCompanionVault?
     private var state = CompanionVaultState()
+    @Published private var nativeSync: NativeSyncClient?
+    private var syncOpenTask: Task<Void, Never>?
+    private var syncCloseTask: Task<Bool, Never>?
+    private var closingSyncClient: NativeSyncClient?
+    private var syncGeneration: UInt64 = 0
+    let sync = CompanionSyncStore()
 
     init() {
         vault = try? EncryptedCompanionVault()
@@ -24,17 +30,14 @@ final class CompanionStore: ObservableObject {
         }
     }
 
-    var syncStatus: String {
-        "E2EE sync is unavailable in this iOS prototype. No network request is made."
-    }
-
-    var aiStatus: String { "AI is Off. This companion has no model or endpoint client." }
+    var aiStatus: String { "AI is Off. AI requests are unavailable in this companion." }
 
     func load() {
         guard let vault else { return }
         do {
             state = try vault.load()
             entries = state.entries.sorted { $0.startedAt > $1.startedAt }
+            sync.setLocalEntries(state.entries)
             familySelection = state.familyActivitySelection ?? FamilyActivitySelection()
             storageStatus = "Manual entries and selection tokens are encrypted on this device."
             if state.familyActivitySelection != nil {
@@ -43,10 +46,72 @@ final class CompanionStore: ObservableObject {
                     : "The stored selection needs reauthorization. No Screen Time data is being read."
             }
             canWrite = true
+            openLocalSync()
         } catch {
+            suspendLocalSync()
             canWrite = false
             storageStatus = "The encrypted local vault cannot be opened. Existing data was preserved."
         }
+    }
+
+    func suspendLocalSync() {
+        sync.detach()
+        syncGeneration &+= 1
+        let opening = syncOpenTask
+        opening?.cancel()
+        syncOpenTask = nil
+        let client = nativeSync
+        nativeSync = nil
+        if opening != nil || client != nil {
+            let previous = syncCloseTask
+            syncCloseTask = Task {
+                if let previous { _ = await previous.value }
+                // Detached vault opening cannot be cancelled; wait for its stale-handle cleanup.
+                if let opening { await opening.value }
+                if let client {
+                    return await closeSyncClient(client)
+                }
+                return true
+            }
+        }
+    }
+
+    private func openLocalSync() {
+        guard nativeSync == nil, syncOpenTask == nil, let vault else { return }
+        let generation = syncGeneration
+        syncOpenTask = Task {
+            defer { if generation == syncGeneration { syncOpenTask = nil } }
+            do {
+                if let closing = syncCloseTask {
+                    _ = await closing.value
+                    guard !Task.isCancelled, generation == syncGeneration else { return }
+                    syncCloseTask = nil
+                }
+                if let closingSyncClient {
+                    guard await closeSyncClient(closingSyncClient) else { return }
+                    guard !Task.isCancelled, generation == syncGeneration else { return }
+                }
+                let client = try await NativeSyncClient.open(vault: vault)
+                guard !Task.isCancelled, generation == syncGeneration else { _ = await closeSyncClient(client); return }
+                do {
+                    guard await client.pause() else { _ = await closeSyncClient(client); return }
+                    let enabled = try await client.invoke("sync_enabled", as: Bool.self)
+                    guard !enabled, !Task.isCancelled, generation == syncGeneration else { _ = await closeSyncClient(client); return }
+                    nativeSync = client
+                    await sync.attach(client)
+                } catch { _ = await closeSyncClient(client) }
+            } catch {
+                if generation == syncGeneration { nativeSync = nil }
+            }
+        }
+    }
+
+    private func closeSyncClient(_ client: NativeSyncClient) async -> Bool {
+        closingSyncClient = client
+        _ = await client.pause()
+        let closed = await client.close()
+        if closed, closingSyncClient === client { closingSyncClient = nil }
+        return closed
     }
 
     func beginFamilyControlFlow() {
@@ -105,6 +170,7 @@ final class CompanionStore: ObservableObject {
             try vault.save(next)
             state = next
             entries = next.entries.sorted { $0.startedAt > $1.startedAt }
+            sync.setLocalEntries(next.entries)
             storageStatus = "Manual entries and selection tokens are encrypted on this device."
             return true
         } catch {

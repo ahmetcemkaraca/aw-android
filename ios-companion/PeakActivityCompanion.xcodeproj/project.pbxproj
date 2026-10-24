@@ -5,6 +5,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+	D00000000000000000000022 /* EntitlementStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000022; };
+	D00000000000000000000023 /* entitlement-trust.json in Resources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000023; };
+	D00000000000000000000021 /* release-trust.json in Resources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000021; };
+	D00000000000000000000020 /* CompanionSyncView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000020; };
+	D00000000000000000000019 /* CompanionSyncStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000019; };
+	D00000000000000000000008 /* NativeSyncClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000017 /* NativeSyncClient.swift */; };
 	D00000000000000000000001 /* PeakActivityCompanionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000001 /* PeakActivityCompanionApp.swift */; };
 	D00000000000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000002 /* ContentView.swift */; };
 	D00000000000000000000003 /* ManualReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000003 /* ManualReport.swift */; };
@@ -30,6 +36,13 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+	C00000000000000000000022 /* EntitlementStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntitlementStore.swift; sourceTree = "<group>"; };
+	C00000000000000000000023 /* entitlement-trust.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "entitlement-trust.json"; sourceTree = "<group>"; };
+	C00000000000000000000021 /* release-trust.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "release-trust.json"; sourceTree = "<group>"; };
+	C00000000000000000000020 /* CompanionSyncView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionSyncView.swift; sourceTree = "<group>"; };
+	C00000000000000000000019 /* CompanionSyncStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionSyncStore.swift; sourceTree = "<group>"; };
+	C00000000000000000000017 /* NativeSyncClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSyncClient.swift; sourceTree = "<group>"; };
+	C00000000000000000000018 /* PeakActivityRust.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PeakActivityRust.h; sourceTree = "<group>"; };
 	C00000000000000000000001 /* PeakActivityCompanionApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeakActivityCompanionApp.swift; sourceTree = "<group>"; };
 	C00000000000000000000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 	C00000000000000000000003 /* ManualReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManualReport.swift; sourceTree = "<group>"; };
@@ -61,7 +74,7 @@
 	};
 	A00000000000000000000003 /* PeakActivityCompanion */ = {
 		isa = PBXGroup;
-		children = (C00000000000000000000001, C00000000000000000000002, C00000000000000000000003, C00000000000000000000004, C00000000000000000000005, C00000000000000000000006, C00000000000000000000007, );
+		children = (C00000000000000000000022, C00000000000000000000023, C00000000000000000000021, C00000000000000000000017, C00000000000000000000020, C00000000000000000000019, C00000000000000000000018, C00000000000000000000001, C00000000000000000000002, C00000000000000000000003, C00000000000000000000004, C00000000000000000000005, C00000000000000000000006, C00000000000000000000007, );
 		path = PeakActivityCompanion;
 		sourceTree = "<group>";
 	};
@@ -89,7 +102,7 @@
 	B00000000000000000000001 /* PeakActivityCompanion */ = {
 		isa = PBXNativeTarget;
 		buildConfigurationList = F00000000000000000000002;
-		buildPhases = (E00000000000000000000003, E00000000000000000000001, E00000000000000000000005, );
+		buildPhases = (E00000000000000000000007, E00000000000000000000003, E00000000000000000000001, E00000000000000000000005, );
 		buildRules = ();
 		dependencies = ();
 		name = PeakActivityCompanion;
@@ -128,14 +141,18 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-	E00000000000000000000005 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+	E00000000000000000000005 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (D00000000000000000000021, D00000000000000000000023, ); runOnlyForDeploymentPostprocessing = 0; };
 	E00000000000000000000006 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (D00000000000000000000007, ); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-	E00000000000000000000003 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (D00000000000000000000001, D00000000000000000000002, D00000000000000000000003, D00000000000000000000004, D00000000000000000000005, ); runOnlyForDeploymentPostprocessing = 0; };
+	E00000000000000000000003 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (D00000000000000000000022, D00000000000000000000008, D00000000000000000000020, D00000000000000000000019, D00000000000000000000001, D00000000000000000000002, D00000000000000000000003, D00000000000000000000004, D00000000000000000000005, ); runOnlyForDeploymentPostprocessing = 0; };
 	E00000000000000000000004 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (D00000000000000000000006, ); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+	E00000000000000000000007 /* Build shared Rust companion */ = {isa = PBXShellScriptBuildPhase; alwaysOutOfDate = 1; buildActionMask = 2147483647; files = (); inputPaths = (); outputPaths = (); runOnlyForDeploymentPostprocessing = 0; shellPath = /bin/bash; shellScript = "/bin/bash \"$PROJECT_DIR/scripts/build-rust.sh\""; };
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXTargetDependency section */
 	D00000000000000000000081 /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = B00000000000000000000001; targetProxy = D00000000000000000000080; };
@@ -144,8 +161,8 @@
 /* Begin XCBuildConfiguration section */
 	F00000000000000000000011 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {CLANG_ENABLE_MODULES = YES; IPHONEOS_DEPLOYMENT_TARGET = 16.0; SDKROOT = iphoneos; SWIFT_VERSION = 5.0; }; name = Debug; };
 	F00000000000000000000012 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {CLANG_ENABLE_MODULES = YES; IPHONEOS_DEPLOYMENT_TARGET = 16.0; SDKROOT = iphoneos; SWIFT_VERSION = 5.0; }; name = Release; };
-	F00000000000000000000021 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_ENTITLEMENTS = PeakActivityCompanion/PeakActivityCompanion.entitlements; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = PeakActivityCompanion/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 16.0; PRODUCT_BUNDLE_IDENTIFIER = app.peakactivity.ioscompanion; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Debug; };
-	F00000000000000000000022 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_ENTITLEMENTS = PeakActivityCompanion/PeakActivityCompanion.entitlements; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = PeakActivityCompanion/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 16.0; PRODUCT_BUNDLE_IDENTIFIER = app.peakactivity.ioscompanion; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Release; };
+	F00000000000000000000021 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_ENTITLEMENTS = PeakActivityCompanion/PeakActivityCompanion.entitlements; ENABLE_USER_SCRIPT_SANDBOXING = NO; SWIFT_OBJC_BRIDGING_HEADER = PeakActivityCompanion/PeakActivityRust.h; LIBRARY_SEARCH_PATHS = ("$(inherited)", "$(DERIVED_FILE_DIR)/peakactivity-rust", ); OTHER_LDFLAGS = ("$(inherited)", "-law_server", "-lc++", "-liconv", "-framework", "SystemConfiguration", ); CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = PeakActivityCompanion/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 16.0; PRODUCT_BUNDLE_IDENTIFIER = app.peakactivity.ioscompanion; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Debug; };
+	F00000000000000000000022 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGN_ENTITLEMENTS = PeakActivityCompanion/PeakActivityCompanion.entitlements; ENABLE_USER_SCRIPT_SANDBOXING = NO; SWIFT_OBJC_BRIDGING_HEADER = PeakActivityCompanion/PeakActivityRust.h; LIBRARY_SEARCH_PATHS = ("$(inherited)", "$(DERIVED_FILE_DIR)/peakactivity-rust", ); OTHER_LDFLAGS = ("$(inherited)", "-law_server", "-lc++", "-liconv", "-framework", "SystemConfiguration", ); CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = PeakActivityCompanion/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 16.0; PRODUCT_BUNDLE_IDENTIFIER = app.peakactivity.ioscompanion; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Release; };
 	F00000000000000000000031 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {BUNDLE_LOADER = "$(TEST_HOST)"; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 16.0; PRODUCT_BUNDLE_IDENTIFIER = app.peakactivity.ioscompanion.tests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PeakActivityCompanion.app/PeakActivityCompanion"; }; name = Debug; };
 	F00000000000000000000032 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {BUNDLE_LOADER = "$(TEST_HOST)"; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 16.0; PRODUCT_BUNDLE_IDENTIFIER = app.peakactivity.ioscompanion.tests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TARGETED_DEVICE_FAMILY = "1,2"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PeakActivityCompanion.app/PeakActivityCompanion"; }; name = Release; };
 /* End XCBuildConfiguration section */

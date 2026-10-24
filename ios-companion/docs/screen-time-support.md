@@ -10,7 +10,7 @@ records the current implementation boundary, not a supported-device promise.
 | Family Activity Picker | Unverified | Unverified | Regional/API behavior unverified | System picker returns opaque tokens; app does not enumerate names |
 | Automatic Screen Time reports | Unavailable | Unavailable | No DeviceActivity report extension or approved entitlement | UI says unavailable; no hidden collection |
 | Desktop window/title or browser tracking | Unsupported | Unsupported | Not applicable | No API, watcher, or claim |
-| E2EE sync | Unavailable | Unavailable | Signed iOS bridge/relay consent absent | No request is sent |
+| E2EE sync | Source only; Apple execution unverified | Source only; Apple execution unverified | Shared projection, pairing, recovery, signed-policy and foreground controls authored; release trust/service, Apple linking and cross-device acceptance pending | Empty development trust prevents network requests; configured builds require explicit approval and foreground run |
 
 Before changing a cell to supported, run the iOS simulator and physical-device
 flows, confirm entitlement assignment and regional behavior, and attach the results

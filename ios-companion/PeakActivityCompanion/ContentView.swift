@@ -81,9 +81,12 @@ struct ContentView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
-                    GroupBox("Unavailable features") {
+                    NavigationLink("Sync and devices") {
+                        CompanionSyncView(store: store.sync)
+                    }
+
+                    GroupBox("AI status") {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text(store.syncStatus)
                             Text(store.aiStatus)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
